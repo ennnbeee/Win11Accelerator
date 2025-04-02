@@ -54,7 +54,7 @@ Run the script to assign **Windows 11 24H2** Feature Update risk states to **ext
 
 ## 🎬 Demos
 
-![W11Accelerator](img/w11a-demo.mp4)
+![W11Accelerator](img/w11a-demo.gif)
 
 ## 🚑 Support
 
