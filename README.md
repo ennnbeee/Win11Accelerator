@@ -26,7 +26,6 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 The PowerShell script requires the below Graph API permissions, you can create an Entra ID App Registration with the following Graph API Application permissions:
 
-- `Group.ReadWrite.All`
 - `Device.ReadWrite.All`
 - `DeviceManagementManagedDevices.ReadWrite.All`
 - `DeviceManagementConfiguration.ReadWrite.All`

@@ -459,7 +459,7 @@ Write-Host ''
 #endregion intro
 
 #region variables
-$requiredScopes = @('Group.ReadWrite.All', 'Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
+$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
 [String[]]$scopes = $requiredScopes -join ', '
 $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 2 -Maximum 5
