@@ -81,7 +81,7 @@ param(
     [ValidateNotNullOrEmpty()]
     [String]$appSecret,
 
-    [Parameter(Mandatory = $true, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
+    [Parameter(Mandatory = $false, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
     [ValidateSet('22H2', '23H2', '24H2')]
     [String]$featureUpdateBuild = '24H2',
 
