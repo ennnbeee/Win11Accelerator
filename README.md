@@ -19,7 +19,10 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.1**
+- **v0.2**
+  - Updated to support creation of Dynamic Groups
+  - Included a whatIf mode
+- v0.1
   - Initial release
 
 ## 🔑 Permissions
@@ -31,6 +34,7 @@ The PowerShell script requires the below Graph API permissions, you can create a
 - `DeviceManagementConfiguration.ReadWrite.All`
 - `User.ReadWrite.All`
 - `DeviceManagementRBAC.Read.All`
+- `Group.ReadWrite.All`
 
 ## ⏯ Usage
 
@@ -51,6 +55,19 @@ Run the script to assign **Windows 11 24H2** Feature Update risk states to **ext
 ```powershell
 .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 10 -firstRun $false
 ```
+
+### 🛍 Group Creation
+
+If you want the script to create dynamic groups based on the extension attribute risk state, include the switch parameter `createGroups`:
+
+```PowerShell
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -createGroups
+```
+
+This will allow for groups to be created with a prefix of **Win11Acc-**, only if a group with the same name does not already exist.
+
+> [!NOTE]
+> If you want to change the Group name prefix update the `$groupPrefix` variable.
 
 ## 🎬 Demos
 

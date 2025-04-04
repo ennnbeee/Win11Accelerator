@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.1
+.VERSION 0.2
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME
@@ -14,6 +14,7 @@
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
 v0.1 - Initial release
+v0.2 - Allows creation of Dynamic Groups
 
 .PRIVATEDATA
 #>
@@ -46,6 +47,9 @@ Choice of 1 to 15
 Select the whether you want to target the deployment to groups of users or groups of devices.
 Choice of Users or Devices.
 
+.PARAMETER createGroups
+Select whether the dynamic groups should be created as part of the script run.
+
 .PARAMETER whatIf
 Select whether you want to run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.
 
@@ -59,10 +63,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.1
+Version:        0.2
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  02/04/2025
+Creation Date:  03/04/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -93,8 +97,11 @@ param(
     [ValidateRange(1, 15)]
     [int]$extensionAttribute,
 
-    [Parameter(Mandatory = $false)]
+    [Parameter(Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
     [String]$scopeTag = 'default',
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
+    [switch]$createGroups,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
     [Boolean]$firstRun = $true,
@@ -273,7 +280,7 @@ Function Get-ReportFeatureUpdateReadiness() {
 
         $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
         if ($id) {
-            Invoke-MgGraphRequest -Uri $uri -Method Get
+            Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject
         }
         elseif ($JSON) {
             $tempFile = [System.IO.Path]::GetTempFileName()
@@ -326,28 +333,46 @@ Function Add-ObjectAttribute() {
 }
 Function Get-EntraIDObject() {
 
-    [cmdletbinding()]
+    [CmdletBinding(DefaultParameterSetName = 'Default')]
     param
     (
 
-        [parameter(Mandatory = $true)]
-        [ValidateSet('User', 'Device')]
-        $object
+        [parameter(Mandatory = $false)]
+        [switch]$user,
+
+        [parameter(Mandatory = $false, ParameterSetName = 'devices')]
+        [switch]$device,
+
+        [parameter(Mandatory = $true, ParameterSetName = 'devices')]
+        [ValidateSet('Windows', 'iOS', 'Android', 'macOS')]
+        [string]$os
 
     )
 
     $graphApiVersion = 'beta'
-    if ($object -eq 'User') {
+    if ($user) {
         $Resource = "users?`$filter=userType eq 'member' and accountEnabled eq true"
     }
-    else {
-        $Resource = "devices?`$filter=operatingSystem eq 'Windows'"
+    elseif ($device) {
+        switch ($os) {
+            'iOS' {
+                $Resource = "devices?`$filter=operatingSystem eq 'iOS'"
+            }
+            'Android' {
+                $Resource = "devices?`$filter=operatingSystem eq 'Android'"
+            }
+            'macOS' {
+                $Resource = "devices?`$filter=operatingSystem eq 'macOS'"
+            }
+            'Windows' {
+                $Resource = "devices?`$filter=operatingSystem eq 'Windows'"
+            }
+        }
     }
-
     try {
 
         $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource"
-        $graphResults = Invoke-MgGraphRequest -Uri $uri -Method Get
+        $graphResults = Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject
 
         $results = @()
         $results += $graphResults.value
@@ -355,17 +380,18 @@ Function Get-EntraIDObject() {
         $pages = $graphResults.'@odata.nextLink'
         while ($null -ne $pages) {
 
-            $additional = Invoke-MgGraphRequest -Uri $pages -Method Get
+            $additional = Invoke-MgGraphRequest -Uri $pages -Method Get -OutputType PSObject
 
             if ($pages) {
                 $pages = $additional.'@odata.nextLink'
             }
             $results += $additional.value
         }
+
         $results
     }
     catch {
-        Write-Error $_.Exception.Message
+        Write-Error $Error[0].ErrorDetails.Message
         break
     }
 }
@@ -419,8 +445,77 @@ Function Get-ScopeTag() {
     try {
 
         $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource"
-        (Invoke-MgGraphRequest -Uri $uri -Method Get).value
+        (Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject).value
 
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        break
+    }
+}
+Function Get-MDMGroup() {
+
+    [cmdletbinding()]
+
+    param
+    (
+        [parameter(Mandatory = $false)]
+        [string]$groupName
+    )
+
+    $graphApiVersion = 'beta'
+    $Resource = 'groups'
+
+    try {
+        if ($groupName) {
+            $searchTerm = 'search="displayName:' + $groupName + '"'
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource`?$searchTerm"
+        }
+        else {
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$Resource"
+        }
+
+        $graphResults = Invoke-MgGraphRequest -Uri $uri -Method Get -Headers @{ConsistencyLevel = 'eventual' } -OutputType PSObject
+
+        $results = @()
+        $results += $graphResults.value
+
+        $pages = $graphResults.'@odata.nextLink'
+        while ($null -ne $pages) {
+
+            $additional = Invoke-MgGraphRequest -Uri $pages -Method Get -Headers @{ConsistencyLevel = 'eventual' } -OutputType PSObject
+
+            if ($pages) {
+                $pages = $additional.'@odata.nextLink'
+            }
+            $results += $additional.value
+        }
+
+        $results
+
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        break
+    }
+}
+Function New-MDMGroup() {
+
+    [cmdletbinding()]
+
+    param
+    (
+        [Parameter(Mandatory = $true)]
+        $JSON
+    )
+
+    $graphApiVersion = 'beta'
+    $Resource = 'groups'
+
+    try {
+        Test-Json -Json $JSON
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+        Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
     }
     catch {
         Write-Error $_.Exception.Message
@@ -435,9 +530,10 @@ Function Get-ScopeTag() {
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
 $extensionAttribute = 10
-$whatIf = $true
-$firstRun = $true
+$whatIf = $false
+$firstRun = $false
 $target = 'device'
+$createGroups = $true
 #>
 #endregion testing
 
@@ -459,15 +555,41 @@ Write-Host ''
 #endregion intro
 
 #region variables
-$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
-[String[]]$scopes = $requiredScopes -join ', '
+$groupPrefix = 'Win11Acc-'
 $ProgressPreference = 'SilentlyContinue';
-$rndWait = Get-Random -Minimum 2 -Maximum 5
+$rndWait = Get-Random -Minimum 1 -Maximum 3
+
+$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All', 'Group.ReadWrite.All')
+[String[]]$scopes = $requiredScopes -join ', '
+
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
+
 $featureUpdate = Switch ($featureUpdateBuild) {
     '22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
     '23H2' { 'NI23H2' } # Windows 11 23H2 (Nickel)
     '24H2' { 'GE24H2' } # Windows 11 24H2 (Germanium)
+}
+
+$userRule = "(user.accountEnabled -eq True) and (user.assignedPlans -any (assignedPlan.servicePlanId -eq `\`"c1ec4a95-1f05-45b3-a911-aa3fa01094f5`\`" -and assignedPlan.capabilityStatus -eq `\`"Enabled`\`")) and "
+$deviceRule = "(device.deviceOwnership -eq `\`"Company`\`") and (device.deviceOSType -eq `\`"Windows`\`") and "
+
+$targetCase = (Get-Culture).TextInfo.ToTitleCase($target)
+
+$riskGroupArray = @()
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
+
+$groupsArray = @()
+foreach ($riskGroup in $riskGroupArray) {
+    if ($target -eq 'user') {
+        $groupsArray += [PSCustomObject]@{ displayName = $riskGroup.displayName; rule = $userRule + $riskGroup.rule; description = $riskGroup.description }
+    }
+    else {
+        $groupsArray += [PSCustomObject]@{ displayName = $riskGroup.displayName; rule = $deviceRule + $riskGroup.rule; description = $riskGroup.description }
+    }
 }
 #endregion variables
 
@@ -577,29 +699,19 @@ else {
 }
 Write-Host
 Write-Host 'The script will carry out the following:' -ForegroundColor Green
+Write-Host ''
 Write-Host "    - Capture all Windows Device or User objects from Entra ID, these are used for assigning an Extension Attribute ($extensionAttributeValue) used in the Dynamic Groups." -ForegroundColor White
 Write-Host "    - Start a Windows 11 Feature Update Readiness report for your selected build version of $featureUpdateBuild." -ForegroundColor White
 Write-Host "    - Capture and process the outcome of the Windows 11 Feature Update Readiness report for build version $featureUpdateBuild" -ForegroundColor White
 Write-Host "    - Based on the Risk level for the device, will assign a risk based flag to the Primary User or Device using Extension Attribute $extensionAttributeValue" -ForegroundColor White
-Write-Host
-Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Cyan
-Write-Host
-Write-Host "Before proceding with the running of the script, please create Entra ID Dynamic $target Groups for each of the below risk levels, using the provided rule:" -ForegroundColor Green
-Write-Host "    - Low Risk: ($target.$extensionAttributeValue -eq ""LowRisk-W11-$featureUpdateBuild"")" -ForegroundColor White
-Write-Host "    - Medium Risk: ($target.$extensionAttributeValue -eq ""MediumRisk-W11-$featureUpdateBuild"")" -ForegroundColor White
-Write-Host "    - High Risk: ($target.$extensionAttributeValue -eq ""HighRisk-W11-$featureUpdateBuild"")" -ForegroundColor White
-Write-Host "    - Not Ready: ($target.$extensionAttributeValue -eq ""NotReady-W11-$featureUpdateBuild"")" -ForegroundColor White
-Write-Host "    - Unknown: ($target.$extensionAttributeValue -eq ""Unknown-W11-$featureUpdateBuild"")" -ForegroundColor White
-Write-Host
-if ($target -eq 'device') {
-    Write-Host 'Consider using additional group rules for corporate owned Windows devices such as:' -ForegroundColor Cyan
-    Write-Host '(device.deviceOwnership -eq "Company") and (device.deviceOSType -eq "Windows")' -ForegroundColor White
+Write-Host ''
+Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
+Write-Host ''
+if ($createGroups) {
+    Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
+    Write-Host ''
 }
-else {
-    Write-Host 'Consider using additional group rules for Intune license assigned users such as:' -ForegroundColor Cyan
-    Write-Host '(user.accountEnabled -eq True) and (user.assignedPlans -any (assignedPlan.servicePlanId -eq "c1ec4a95-1f05-45b3-a911-aa3fa01094f5" -and assignedPlan.capabilityStatus -eq "Enabled"))' -ForegroundColor White
-}
-Write-Host
+Write-Host ''
 if ($firstRun -eq $true) {
     Write-Warning 'Please review the above and confirm you are happy to continue.' -WarningAction Inquire
 }
@@ -609,7 +721,7 @@ if ($firstRun -eq $true) {
 Write-Host
 if ($target -eq 'user') {
     Write-Host 'Getting user objects and associated IDs from Entra ID...' -ForegroundColor Cyan
-    $entraUsers = Get-EntraIDObject -object User
+    $entraUsers = Get-EntraIDObject -user
     Write-Host "Found $($entraUsers.Count) user objects and associated IDs from Entra ID." -ForegroundColor Green
     if ($entraUsers.Count -eq 0) {
         Write-Host 'Found no Users in Entra.' -ForegroundColor Red
@@ -637,7 +749,7 @@ if ($target -eq 'user') {
 
 }
 Write-Host 'Getting Windows device objects and associated IDs from Entra ID...' -ForegroundColor Cyan
-$entraDevices = Get-EntraIDObject -object Device
+$entraDevices = Get-EntraIDObject -device -os Windows
 Write-Host "Found $($entraDevices.Count) Windows devices and associated IDs from Entra ID." -ForegroundColor Green
 if ($entraDevices.Count -eq 0) {
     Write-Host 'Found no Windows devices in Entra.' -ForegroundColor Red
@@ -651,7 +763,7 @@ foreach ($itemEntraDevice in $entraDevices) {
 Write-Host
 Write-Host "Checking for existing data in attribute $extensionAttributeValue in Entra ID..." -ForegroundColor Cyan
 $attributeErrors = 0
-$safeAttributes = @("LowRisk-W11-$featureUpdateBuild", "MediumRisk-W11-$featureUpdateBuild", "HighRisk-W11-$featureUpdateBuild", "NotReady-W11-$featureUpdateBuild", "Unknown-W11-$featureUpdateBuild")
+$safeAttributes = @("W11-$featureUpdateBuild-LowRisk", "W11-$featureUpdateBuild-MediumRisk", "W11-$featureUpdateBuild-HighRisk", "W11-$featureUpdateBuild-NotReady", "W11-$featureUpdateBuild-Unknown")
 
 $entraObjects = switch ($target) {
     'user' { $entraUsers }
@@ -682,6 +794,67 @@ if ($attributeErrors -gt 0) {
 Write-Host "No issues found using the selected attribute $extensionAttributeValue for risk assignment." -ForegroundColor Green
 Write-Host
 #endregion pre-flight
+
+#region Group Creation
+if ($createGroups) {
+
+    Write-Host ''
+    Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
+    Write-Host ''
+    $groupsArray | Select-Object -Property displayName, rule | Format-Table -AutoSize
+
+    if ($firstRun -eq $true) {
+        Write-Host ''
+        Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
+        Write-Host ''
+    }
+    else {
+        Write-Host ''
+        Write-Host 'Creating groups without confirmation as this is a re-run of the script.' -ForegroundColor Green
+    }
+
+    foreach ($group in $groupsArray) {
+        $groupName = $($group.displayName)
+        if ($groupName.length -gt 120) {
+            #shrinking group name to less than 120 characters
+            $groupName = $groupName[0..120] -join ''
+        }
+
+        if (!(Get-MDMGroup -groupName $groupName)) {
+            Write-Host ''
+            Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
+            $groupJSON = @"
+{
+    "description": "$($group.description)",
+    "displayName": "$groupName",
+    "groupTypes": [
+        "DynamicMembership"
+    ],
+    "mailEnabled": false,
+    "mailNickname": "$groupName",
+    "securityEnabled": true,
+    "membershipRule": "$($group.rule)",
+    "membershipRuleProcessingState": "On"
+}
+"@
+            if ($whatIf) {
+                Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
+                continue
+            }
+            else {
+                New-MDMGroup -JSON $groupJSON | Out-Null
+            }
+            Write-Host "Group $($group.displayName) created successfully." -ForegroundColor Green
+        }
+        else {
+            Write-Host "Group $($group.displayName) already exists, skipping creation." -ForegroundColor Yellow
+            continue
+        }
+    }
+    Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
+    Write-Host ''
+}
+#endregion Group Creation
 
 #region Feature Update Readiness
 Write-Host "Starting the Feature Update Readiness Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
@@ -718,11 +891,11 @@ $reportArray = @()
 foreach ($csvReportDevice in $csvReportDevices) {
 
     $riskState = switch ($csvReportDevice.ReadinessStatus) {
-        '0' { "LowRisk-W11-$featureUpdateBuild" }
-        '1' { "MediumRisk-W11-$featureUpdateBuild" }
-        '2' { "HighRisk-W11-$featureUpdateBuild" }
-        '3' { "NotReady-W11-$featureUpdateBuild" }
-        '5' { "Unknown-W11-$featureUpdateBuild" }
+        '0' { "W11-$featureUpdateBuild-LowRisk" }
+        '1' { "W11-$featureUpdateBuild-MediumRisk" }
+        '2' { "W11-$featureUpdateBuild-HighRisk" }
+        '3' { "W11-$featureUpdateBuild-NotReady" }
+        '5' { "W11-$featureUpdateBuild-Unknown-" }
     }
 
     if ($target -eq 'user') {
@@ -798,13 +971,12 @@ Write-Host
 
 #region Attributes
 Write-Host "Starting the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Magenta
-Write-Host
+Write-Host ''
 if ($firstRun -eq $true) {
     Write-Warning 'Please confirm you are happy to continue.' -WarningAction Inquire
 }
-Write-Host
 Write-Host "Assigning the Risk attributes to $extensionAttributeValue..." -ForegroundColor cyan
-Write-Host
+Write-Host ''
 # users are a pain
 if ($target -eq 'user') {
     # Removes devices with no primary user
@@ -915,7 +1087,6 @@ else {
         }
     }
 }
-Write-Host
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
-Write-Host
+Write-Host ''
 #endregion Attributes
