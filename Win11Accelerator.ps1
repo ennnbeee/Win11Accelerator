@@ -559,7 +559,7 @@ $groupPrefix = 'Win11Acc-'
 $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 1 -Maximum 3
 
-$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
+$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All', 'Group.ReadWrite.All')
 [String[]]$scopes = $requiredScopes -join ', '
 
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
