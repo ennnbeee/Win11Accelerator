@@ -57,7 +57,7 @@ Select whether you want to run the script in whatIf mode, with this switch it wi
 Run the script without with warning prompts, used for continued running of the script.
 
 .EXAMPLE
-PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 15 -whatIf
+PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 15 -whatIf -createGroups
 
 .EXAMPLE
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
@@ -66,12 +66,33 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAtt
 Version:        0.2
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  03/04/2025
+Creation Date:  07/04/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
 
 param(
+
+    [Parameter(Position = 0, Mandatory = $true, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
+    [ValidateSet('22H2', '23H2', '24H2')]
+    [String]$featureUpdateBuild = '24H2',
+
+    [Parameter(Position = 1, Mandatory = $true, HelpMessage = 'Select the whether you want to target the deployment to groups of users or groups of devices.')]
+    [ValidateSet('user', 'device')]
+    [String]$target = 'device',
+
+    [Parameter(Position = 2, Mandatory = $true, HelpMessage = 'Configure the device extensionAttribute to be used for tagging Entra ID objects with their Feature Update Readiness Assessment risk score.')]
+    [ValidateRange(1, 15)]
+    [int]$extensionAttribute,
+
+    [Parameter(Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
+    [String]$scopeTag = 'default',
+
+    [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
+    [switch]$createGroups,
+
+    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
+    [Boolean]$firstRun = $true,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the Id of the Entra ID tenant to connect to')]
     [ValidateLength(36, 36)]
@@ -84,27 +105,6 @@ param(
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the App secret to allow for authentication to graph')]
     [ValidateNotNullOrEmpty()]
     [String]$appSecret,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
-    [ValidateSet('22H2', '23H2', '24H2')]
-    [String]$featureUpdateBuild = '24H2',
-
-    [Parameter(Mandatory = $true, HelpMessage = 'Select the whether you want to target the deployment to groups of users or groups of devices.')]
-    [ValidateSet('user', 'device')]
-    [String]$target = 'device',
-
-    [Parameter(Mandatory = $true, HelpMessage = 'Configure the device extensionAttribute to be used for tagging Entra ID objects with their Feature Update Readiness Assessment risk score.')]
-    [ValidateRange(1, 15)]
-    [int]$extensionAttribute,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
-    [String]$scopeTag = 'default',
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
-    [switch]$createGroups,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
-    [Boolean]$firstRun = $true,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.')]
     [switch]$whatIf
@@ -501,7 +501,7 @@ Function Get-MDMGroup() {
 }
 Function New-MDMGroup() {
 
-    [cmdletbinding()]
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
     param
     (
@@ -512,14 +512,22 @@ Function New-MDMGroup() {
     $graphApiVersion = 'beta'
     $Resource = 'groups'
 
-    try {
-        Test-Json -Json $JSON
-        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
-        Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
+    if ($PSCmdlet.ShouldProcess('Creating new Entra ID security group')) {
+        try {
+            Test-Json -Json $JSON
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
+        }
+        catch {
+            Write-Error $_.Exception.Message
+            break
+        }
     }
-    catch {
-        Write-Error $_.Exception.Message
-        break
+    elseif ($WhatIfPreference.IsPresent) {
+        Write-Output 'FEntra ID security group would have been created'
+    }
+    else {
+        Write-Output 'Entra ID security group was not created'
     }
 }
 
@@ -547,8 +555,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.1 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-02' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.2 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-07' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
