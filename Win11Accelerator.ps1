@@ -15,6 +15,7 @@
 .RELEASENOTES
 v0.1 - Initial release
 v0.2 - Allows creation of Dynamic Groups
+v0.2.1 - Function improvements and bug fixes
 
 .PRIVATEDATA
 #>
@@ -63,10 +64,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.2
+Version:        0.2.1
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  07/04/2025
+Creation Date:  15/04/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -213,21 +214,38 @@ Function New-ReportFeatureUpdateReadiness() {
     param
     (
         [parameter(Mandatory = $true)]
-        $JSON,
+        $featureUpdate,
 
         [Parameter()]
-        [switch]$csv
+        $scopeTagId
     )
 
     $graphApiVersion = 'Beta'
+    $Resource = 'deviceManagement/reports/exportJobs'
 
-    if ($csv.IsPresent) {
+    $JSON = @"
+    {
+        "reportName": "MEMUpgradeReadinessDevice",
+        "filter": "(TargetOS eq '$featureUpdate') and (DeviceScopesTag eq '$scopeTagId')",
+        "select": [
+            "DeviceName",
+            "DeviceManufacturer",
+            "DeviceModel",
+            "OSVersion",
+            "ReadinessStatus",
+            "SystemRequirements",
+            "AppIssuesCount",
+            "DriverIssuesCount",
+            "AppOtherIssuesCount",
+            "DeviceId",
+            "AadDeviceId",
+            "Ownership"
+        ],
+        "format": "csv",
+        "snapshotId": "MEMUpgradeReadinessDevice_00000000-0000-0000-0000-000000000001"
+    }
+"@
 
-        $Resource = 'deviceManagement/reports/exportJobs'
-    }
-    else {
-        $Resource = 'deviceManagement/reports/cachedReportConfigurations'
-    }
 
     if ($PSCmdlet.ShouldProcess('Creating new Feature Update Report')) {
         try {
@@ -253,28 +271,13 @@ Function Get-ReportFeatureUpdateReadiness() {
 
     param (
 
-        [parameter(Mandatory = $false)]
-        $Id,
-
-        [parameter(Mandatory = $false)]
-        $JSON,
-
-        [Parameter()]
-        [switch]$csv
+        [parameter(Mandatory = $true)]
+        $Id
 
     )
 
     $graphApiVersion = 'Beta'
-
-    if ($csv.IsPresent) {
-        $Resource = "deviceManagement/reports/exportJobs('$Id')"
-    }
-    elseif ($id) {
-        $Resource = "deviceManagement/reports/cachedReportConfigurations('$Id')"
-    }
-    elseif ($JSON) {
-        $Resource = 'deviceManagement/reports/getCachedReport'
-    }
+    $Resource = "deviceManagement/reports/exportJobs('$Id')"
 
     try {
 
@@ -672,28 +675,7 @@ if ($scopeTag -ne 'default') {
 else {
     $scopeTagId = '00000'
 }
-$featureUpdateCreate = @"
-{
-    "reportName": "MEMUpgradeReadinessDevice",
-    "filter": "(TargetOS eq '$featureUpdate') and (DeviceScopesTag eq '$scopeTagId')",
-    "select": [
-        "DeviceName",
-        "DeviceManufacturer",
-        "DeviceModel",
-        "OSVersion",
-        "ReadinessStatus",
-        "SystemRequirements",
-        "AppIssuesCount",
-        "DriverIssuesCount",
-        "AppOtherIssuesCount",
-        "DeviceId",
-        "AadDeviceId",
-        "Ownership"
-    ],
-    "format": "csv",
-    "snapshotId": "MEMUpgradeReadinessDevice_00000000-0000-0000-0000-000000000001"
-}
-"@
+
 #endregion scope tags
 
 #region Start
@@ -868,8 +850,8 @@ if ($createGroups) {
 Write-Host "Starting the Feature Update Readiness Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
 Write-Host
 
-$featureUpdateReport = New-ReportFeatureUpdateReadiness -JSON $featureUpdateCreate -csv
-While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id -csv).status -ne 'completed') {
+$featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
+While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
     Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
@@ -878,7 +860,7 @@ Write-Host "Windows 11 $featureUpdateBuild feature update readiness completed pr
 Write-Host
 Write-Host "Getting Windows 11 $featureUpdateBuild feature update readiness Report data..." -ForegroundColor Magenta
 Write-Host
-$csvURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id -csv).url
+$csvURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
 
 $csvHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
 Add-Type -AssemblyName System.IO.Compression
@@ -903,7 +885,7 @@ foreach ($csvReportDevice in $csvReportDevices) {
         '1' { "W11-$featureUpdateBuild-MediumRisk" }
         '2' { "W11-$featureUpdateBuild-HighRisk" }
         '3' { "W11-$featureUpdateBuild-NotReady" }
-        '5' { "W11-$featureUpdateBuild-Unknown-" }
+        '5' { "W11-$featureUpdateBuild-Unknown" }
     }
 
     if ($target -eq 'user') {
