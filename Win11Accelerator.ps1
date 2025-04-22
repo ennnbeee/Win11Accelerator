@@ -790,13 +790,17 @@ Write-Host
 #endregion pre-flight
 
 #region Group Creation
-if ($createGroups) {
 
-    Write-Host ''
+Write-Host ''
+if (!$createGroups){
+    Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
+}
+else {
     Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
-    Write-Host ''
-    $groupsArray | Select-Object -Property displayName, rule | Format-Table -AutoSize
-
+}
+Write-Host ''
+$groupsArray | Select-Object -Property displayName, rule | Format-Table -AutoSize
+if ($createGroups) {
     if ($firstRun -eq $true) {
         Write-Host ''
         Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
