@@ -541,11 +541,11 @@ Function New-MDMGroup() {
 <#
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
-$extensionAttribute = 10
-$whatIf = $false
-$firstRun = $false
+$extensionAttribute = 15
+$whatIf = $true
+$firstRun = $true
 $target = 'device'
-$createGroups = $true
+$createGroups = $false
 #>
 #endregion testing
 
@@ -984,7 +984,7 @@ if ($target -eq 'user') {
             # Only need one device object as they're all Windows 11
             $userObject = $user.Group | Select-Object -First 1
 
-            if ($userObject.$extensionAttributeValue -eq $userObject.RiskState) {
+            if (($userObject.$extensionAttributeValue -eq $userObject.RiskState) -and ($null -ne $userObject.$extensionAttributeValue)) {
                 $riskColour = 'cyan'
                 Write-Host "$($userObject.userPrincipalName) risk tag hasn't changed for Windows 11 $featureUpdateBuild" -ForegroundColor White
             }
@@ -1014,7 +1014,7 @@ if ($target -eq 'user') {
                     '0' { 'Green' }
                     '1' { 'Yellow' }
                     '2' { 'Red' }
-                    '3' { 'Red' }
+                    '3' { 'Blue' }
                     '4' { 'Cyan' }
                     '5' { 'Magenta' }
                 }
@@ -1046,7 +1046,7 @@ if ($target -eq 'user') {
 else {
     Foreach ($device in $reportArray) {
 
-        if ($device.$extensionAttributeValue -eq $device.RiskState) {
+        if (($device.$extensionAttributeValue -eq $device.RiskState) -and ($null -ne $device.$extensionAttributeValue)) {
             Write-Host "$($device.DeviceName) risk tag hasn't changed for Windows 11 $featureUpdateBuild" -ForegroundColor White
         }
         else {
@@ -1068,7 +1068,7 @@ else {
                 '0' { 'Green' }
                 '1' { 'Yellow' }
                 '2' { 'Red' }
-                '3' { 'Red' }
+                '3' { 'Blue' }
                 '4' { 'Cyan' }
                 '5' { 'Magenta' }
             }
@@ -1081,6 +1081,7 @@ else {
         }
     }
 }
+Write-Host ''
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
 Write-Host ''
 #endregion Attributes
