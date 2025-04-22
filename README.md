@@ -19,9 +19,7 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.2.1**
-  - Function improvements and bug fixes
-- v0.2
+- **v0.2**
   - Updated to support creation of Dynamic Groups
   - Included a whatIf mode
 - v0.1

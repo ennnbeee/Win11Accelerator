@@ -16,6 +16,7 @@
 v0.1 - Initial release
 v0.2 - Allows creation of Dynamic Groups
 v0.2.1 - Function improvements and bug fixes
+v0.2.2 - Changed logic if groups are to be created
 
 .PRIVATEDATA
 #>
@@ -558,8 +559,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.2 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-07' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.2 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-22' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -570,7 +571,10 @@ $groupPrefix = 'Win11Acc-'
 $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 1 -Maximum 3
 
-$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All', 'Group.ReadWrite.All')
+$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
+if ($createGroups) {
+    $requiredScopes += @('Group.ReadWrite.All')
+}
 [String[]]$scopes = $requiredScopes -join ', '
 
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
