@@ -542,7 +542,7 @@ Function New-MDMGroup() {
 <#
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
-$extensionAttribute = 15
+$extensionAttribute = 11
 $whatIf = $true
 $firstRun = $true
 $target = 'device'
@@ -610,7 +610,7 @@ foreach ($riskGroup in $riskGroupArray) {
 
 $groupsDisplayArray = @()
 foreach ($groupArray in $groupsArray) {
-    $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\','') }
+    $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\', '') }
 }
 #endregion variables
 
@@ -711,8 +711,8 @@ if ($createGroups) {
     Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
     Write-Host ''
 }
-Write-Host ''
 if ($firstRun -eq $true) {
+    Write-Host ''
     Write-Warning 'Please review the above and confirm you are happy to continue.' -WarningAction Inquire
 }
 #endregion Start
@@ -796,69 +796,70 @@ Write-Host
 #endregion pre-flight
 
 #region Group Creation
-
 Write-Host ''
-if (!$createGroups){
-    Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
-}
-else {
-    Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
-}
-Write-Host ''
-
-$groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
-
-if ($createGroups) {
-    if ($firstRun -eq $true) {
-        Write-Host ''
-        Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
-        Write-Host ''
+if ($firstRun -eq $true) {
+    if (!$createGroups) {
+        Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
     }
     else {
-        Write-Host ''
-        Write-Host 'Creating groups without confirmation as this is a re-run of the script.' -ForegroundColor Green
+        Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
     }
+    Write-Host ''
 
-    foreach ($group in $groupsArray) {
-        $groupName = $($group.displayName)
-        if ($groupName.length -gt 120) {
-            #shrinking group name to less than 120 characters
-            $groupName = $groupName[0..120] -join ''
-        }
+    $groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
 
-        if (!(Get-MDMGroup -groupName $groupName)) {
+    if ($createGroups) {
+        if ($firstRun -eq $true) {
             Write-Host ''
-            Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
-            $groupJSON = @"
-{
-    "description": "$($group.description)",
-    "displayName": "$groupName",
-    "groupTypes": [
-        "DynamicMembership"
-    ],
-    "mailEnabled": false,
-    "mailNickname": "$groupName",
-    "securityEnabled": true,
-    "membershipRule": "$($group.rule)",
-    "membershipRuleProcessingState": "On"
-}
-"@
-            if ($whatIf) {
-                Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
-                continue
-            }
-            else {
-                New-MDMGroup -JSON $groupJSON | Out-Null
-            }
-            Write-Host "Group $($group.displayName) created successfully." -ForegroundColor Green
+            Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
+            Write-Host ''
         }
         else {
-            Write-Host "Group $($group.displayName) already exists, skipping creation." -ForegroundColor Yellow
-            continue
+            Write-Host ''
+            Write-Host 'Creating groups without confirmation as this is a re-run of the script.' -ForegroundColor Green
         }
+
+        foreach ($group in $groupsArray) {
+            $groupName = $($group.displayName)
+            if ($groupName.length -gt 120) {
+                #shrinking group name to less than 120 characters
+                $groupName = $groupName[0..120] -join ''
+            }
+
+            if (!(Get-MDMGroup -groupName $groupName)) {
+                Write-Host ''
+                Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
+                $groupJSON = @"
+    {
+        "description": "$($group.description)",
+        "displayName": "$groupName",
+        "groupTypes": [
+            "DynamicMembership"
+        ],
+        "mailEnabled": false,
+        "mailNickname": "$groupName",
+        "securityEnabled": true,
+        "membershipRule": "$($group.rule)",
+        "membershipRuleProcessingState": "On"
     }
-    Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
-    Write-Host ''
+"@
+                if ($whatIf) {
+                    Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
+                    continue
+                }
+                else {
+                    New-MDMGroup -JSON $groupJSON | Out-Null
+                }
+                Write-Host "Group $($group.displayName) created successfully." -ForegroundColor Green
+            }
+            else {
+                Write-Host "Group $($group.displayName) already exists, skipping creation." -ForegroundColor Yellow
+                continue
+            }
+        }
+        Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
+        Write-Host ''
+    }
 }
 #endregion Group Creation
 
@@ -880,7 +881,7 @@ $csvURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
 
 $csvHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
 Add-Type -AssemblyName System.IO.Compression
-$csvReportStream = Invoke-WebRequest -Uri $csvURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop -Verbose
+$csvReportStream = Invoke-WebRequest -Uri $csvURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop
 $csvReportZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($csvReportStream.Content))
 $csvReportDevices = [System.IO.StreamReader]::new($csvReportZip.GetEntry($csvReportZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
 
@@ -1000,6 +1001,9 @@ if ($target -eq 'user') {
                 $riskColour = 'cyan'
                 Write-Host "$($userObject.userPrincipalName) risk tag hasn't changed for Windows 11 $featureUpdateBuild" -ForegroundColor White
             }
+            elseif (($null -eq $userObject.$extensionAttributeValue) -and ($($userObject.ReadinessStatus) -eq 4)) {
+                Write-Host "$($userObject.userPrincipalName) device already updated to Windows 11 $featureUpdateBuild" -ForegroundColor Cyan
+            }
             else {
                 $riskColour = 'Cyan'
                 $JSON = @"
@@ -1058,8 +1062,20 @@ if ($target -eq 'user') {
 else {
     Foreach ($device in $reportArray) {
 
+        $riskColour = switch ($($device.ReadinessStatus)) {
+            '0' { 'Green' }
+            '1' { 'Yellow' }
+            '2' { 'Red' }
+            '3' { 'Blue' }
+            '4' { 'Cyan' }
+            '5' { 'Magenta' }
+        }
+
         if (($device.$extensionAttributeValue -eq $device.RiskState) -and ($null -ne $device.$extensionAttributeValue)) {
             Write-Host "$($device.DeviceName) risk tag hasn't changed for Windows 11 $featureUpdateBuild" -ForegroundColor White
+        }
+        elseif (($null -eq $device.$extensionAttributeValue) -and ($($device.ReadinessStatus) -eq 4)) {
+            Write-Host "$($device.DeviceName) already updated to Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
         }
         else {
             $JSON = @"
@@ -1076,16 +1092,8 @@ else {
                 Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
             }
 
-            $riskColour = switch ($($device.ReadinessStatus)) {
-                '0' { 'Green' }
-                '1' { 'Yellow' }
-                '2' { 'Red' }
-                '3' { 'Blue' }
-                '4' { 'Cyan' }
-                '5' { 'Magenta' }
-            }
             if ($($device.ReadinessStatus) -eq 4) {
-                Write-Host "$($device.DeviceName) $extensionAttributeValue risk tag removed as already updated to Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+                Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
             }
             else {
                 Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
