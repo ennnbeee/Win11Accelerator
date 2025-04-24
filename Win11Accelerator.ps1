@@ -17,7 +17,7 @@ v0.1 - Initial release
 v0.2 - Allows creation of Dynamic Groups
 v0.2.1 - Function improvements and bug fixes
 v0.2.2 - Changed logic if groups are to be created
-v0.2.3 - Improved function performance
+v0.2.3 - Improved function performance, and updated device dynamic groups
 
 .PRIVATEDATA
 #>
@@ -587,7 +587,7 @@ $featureUpdate = Switch ($featureUpdateBuild) {
 }
 
 $userRule = "(user.accountEnabled -eq True) and (user.assignedPlans -any (assignedPlan.servicePlanId -eq `\`"c1ec4a95-1f05-45b3-a911-aa3fa01094f5`\`" -and assignedPlan.capabilityStatus -eq `\`"Enabled`\`")) and "
-$deviceRule = "(device.deviceOwnership -eq `\`"Company`\`") and (device.deviceOSType -eq `\`"Windows`\`") and "
+$deviceRule = "(device.deviceManagementAppId -ne null) and (device.deviceOwnership -eq `\`"Company`\`") and (device.deviceOSType -eq `\`"Windows`\`") and "
 
 $targetCase = (Get-Culture).TextInfo.ToTitleCase($target)
 
@@ -606,6 +606,11 @@ foreach ($riskGroup in $riskGroupArray) {
     else {
         $groupsArray += [PSCustomObject]@{ displayName = $riskGroup.displayName; rule = $deviceRule + $riskGroup.rule; description = $riskGroup.description }
     }
+}
+
+$groupsDisplayArray = @()
+foreach ($groupArray in $groupsArray) {
+    $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\','') }
 }
 #endregion variables
 
@@ -800,7 +805,9 @@ else {
     Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
 }
 Write-Host ''
-$groupsArray | Select-Object -Property displayName, rule | Format-Table -AutoSize
+
+$groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
+
 if ($createGroups) {
     if ($firstRun -eq $true) {
         Write-Host ''
