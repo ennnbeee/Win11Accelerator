@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.2
+.VERSION 0.2.2
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME
@@ -17,6 +17,7 @@ v0.1 - Initial release
 v0.2 - Allows creation of Dynamic Groups
 v0.2.1 - Function improvements and bug fixes
 v0.2.2 - Changed logic if groups are to be created
+v0.2.3 - Improved function performance
 
 .PRIVATEDATA
 #>
@@ -65,10 +66,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.2.1
+Version:        0.2.3
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  15/04/2025
+Creation Date:  24/04/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -360,16 +361,16 @@ Function Get-EntraIDObject() {
     elseif ($device) {
         switch ($os) {
             'iOS' {
-                $Resource = "devices?`$filter=operatingSystem eq 'iOS'"
+                $Resource = "devices?`$filter=operatingSystem eq 'iOS' and isManaged eq true"
             }
             'Android' {
-                $Resource = "devices?`$filter=operatingSystem eq 'Android'"
+                $Resource = "devices?`$filter=operatingSystem eq 'Android'and isManaged eq true"
             }
             'macOS' {
-                $Resource = "devices?`$filter=operatingSystem eq 'macOS'"
+                $Resource = "devices?`$filter=operatingSystem eq 'macOS'and isManaged eq true"
             }
             'Windows' {
-                $Resource = "devices?`$filter=operatingSystem eq 'Windows'"
+                $Resource = "devices?`$filter=operatingSystem eq 'Windows'and isManaged eq true"
             }
         }
     }
@@ -559,8 +560,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.2 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-22' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.3 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-24' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
