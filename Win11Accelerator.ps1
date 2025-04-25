@@ -18,6 +18,7 @@ v0.2 - Allows creation of Dynamic Groups
 v0.2.1 - Function improvements and bug fixes
 v0.2.2 - Changed logic if groups are to be created
 v0.2.3 - Improved function performance, and updated device dynamic groups
+v0.2.4 - Updated attribute assignment logic and module check logic
 
 .PRIVATEDATA
 #>
@@ -66,10 +67,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.2.3
+Version:        0.2.4
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  24/04/2025
+Creation Date:  25/04/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -545,7 +546,7 @@ $featureUpdateBuild = '24H2'
 $extensionAttribute = 11
 $whatIf = $true
 $firstRun = $true
-$target = 'device'
+$target = 'user'
 $createGroups = $false
 #>
 #endregion testing
@@ -560,8 +561,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.3 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-24' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.4 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-25' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -615,12 +616,26 @@ foreach ($groupArray in $groupsArray) {
 #endregion variables
 
 #region module check
+$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal $identity
+$elevatedStatus = $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
 $modules = @('Microsoft.Graph.Authentication')
 foreach ($module in $modules) {
     Write-Host "Checking for $module PowerShell module..." -ForegroundColor Cyan
     Write-Host ''
     If (!(Get-Module -Name $module -ListAvailable)) {
-        Install-Module -Name $module -Scope CurrentUser -AllowClobber
+        if ($elevatedStatus -eq $true) {
+            Write-Host "PowerShell Module $module not found, installing for all users." -ForegroundColor Yellow
+            Write-Host ''
+            Install-Module -Name $module -AllowClobber
+        }
+
+        else {
+            Write-Host "PowerShell Module $module not found, installing for current user." -ForegroundColor Yellow
+            Write-Host ''
+            Install-Module -Name $module -Scope CurrentUser -AllowClobber
+        }
+
     }
     Write-Host "PowerShell Module $module found." -ForegroundColor Green
     Write-Host ''
@@ -700,10 +715,10 @@ else {
 Write-Host
 Write-Host 'The script will carry out the following:' -ForegroundColor Green
 Write-Host ''
-Write-Host "    - Capture all Windows Device or User objects from Entra ID, these are used for assigning an Extension Attribute ($extensionAttributeValue) used in the Dynamic Groups." -ForegroundColor White
-Write-Host "    - Start a Windows 11 Feature Update Readiness report for your selected build version of $featureUpdateBuild." -ForegroundColor White
-Write-Host "    - Capture and process the outcome of the Windows 11 Feature Update Readiness report for build version $featureUpdateBuild" -ForegroundColor White
-Write-Host "    - Based on the Risk level for the device, will assign a risk based flag to the Primary User or Device using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+Write-Host "    - Capture all Windows Device or User objects from Entra ID." -ForegroundColor White
+Write-Host "    - Start a Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
+Write-Host "    - Capture and process the outcome of the Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
+Write-Host "    - Assign a risk based flag to the Primary User or Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
 Write-Host ''
 Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
 Write-Host ''
@@ -868,8 +883,8 @@ Write-Host "Starting the Feature Update Readiness Report for Windows 11 $feature
 Write-Host
 
 $featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
+Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
 While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
-    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
 
@@ -1021,9 +1036,12 @@ if ($target -eq 'user') {
             $highestRisk = ($userObject | Where-Object { $_.ReadinessStatus -ne 4 } | Measure-Object -Property ReadinessStatus -Maximum).Maximum
             $userObject = ($userObject | Where-Object { $_.ReadinessStatus -eq $highestRisk } | Select-Object -First 1)
 
-            if ($userObject.$extensionAttributeValue -eq $userObject.RiskState) {
+            if ($userObject.$extensionAttributeValue -eq $userObject.RiskState -and ($null -ne $userObject.$extensionAttributeValue)) {
                 $riskColour = 'cyan'
                 Write-Host "$($userObject.userPrincipalName) risk tag hasn't changed for Windows 11 $featureUpdateBuild" -ForegroundColor White
+            }
+            elseif (($null -eq $userObject.$extensionAttributeValue) -and ($($userObject.ReadinessStatus) -eq 4)) {
+                Write-Host "$($userObject.userPrincipalName) device already updated to Windows 11 $featureUpdateBuild" -ForegroundColor Cyan
             }
             else {
                 $riskColour = switch ($($userObject.ReadinessStatus)) {
@@ -1046,7 +1064,12 @@ if ($target -eq 'user') {
 
         If (!$whatIf) {
             Start-Sleep -Seconds $rndWait
-            Add-ObjectAttribute -object User -Id $($userObject.userObjectID) -JSON $JSON
+            if (!([string]::IsNullOrEmpty($userObject.userObjectID))) {
+                Add-ObjectAttribute -object User -Id $($userObject.userObjectID) -JSON $JSON
+            }
+            else {
+                Write-Host "$($userObject.userObjectID) risk tag could not be assigned for Windows 11 $featureUpdateBuild" -ForegroundColor DarkRed
+            }
         }
         if ($($user.Group.ReadinessStatus) -eq 4) {
             Write-Host "$($userObject.userPrincipalName) $extensionAttributeValue risk tag removed as already updated to Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
@@ -1089,15 +1112,21 @@ else {
             # Sleep to stop throttling issues
             If (!$whatIf) {
                 Start-Sleep -Seconds $rndWait
-                Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
+                if (!([string]::IsNullOrEmpty($device.deviceObjectID))) {
+                    Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
+                }
+                else {
+                    Write-Host "$($device.DeviceName) risk tag could not be assigned for Windows 11 $featureUpdateBuild" -ForegroundColor DarkRed
+                }
+                if ($($device.ReadinessStatus) -eq 4) {
+                    Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+                }
+                else {
+                    Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+                }
             }
 
-            if ($($device.ReadinessStatus) -eq 4) {
-                Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
-            }
-            else {
-                Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
-            }
+
         }
     }
 }

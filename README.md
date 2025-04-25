@@ -19,10 +19,11 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.2.3**
+- **v0.2.4**
   - Updated to support creation of Dynamic Groups
   - Included a whatIf mode
   - Improved performance of functions
+  - Improved logic of attribute assignment
 - v0.1
   - Initial release
 
@@ -39,22 +40,30 @@ The PowerShell script requires the below Graph API permissions, you can create a
 
 ## ⏯ Usage
 
-Run the script to assign **Windows 11 23H2** Feature Update risk states to **extensionAttribute 10** with warning prompts:
+Download the `Win11Accelerator.ps1` script, and from the saved location in a standard or elevated PowerShell prompt run one of the following:
+
+### 🧪 Testing
+
+Run the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 11** with warning prompts in **whatIf** mode where no changes are made:
 
 ```powershell
-.\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 10
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 11  -whatIf
 ```
 
-Run the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 8** in **whatIf** mode where changes will be simulated:
+### ⚙ General Usage
+
+Run the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 10** with warning prompts:
 
 ```powershell
-.\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 8 -whatIf
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10
 ```
 
-Run the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 10** without warning prompts:
+### ⚙ Subsequent Usage
+
+Following the initial run the script, you can suppress the warning prompts by running the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 10** without warning prompts:
 
 ```powershell
-.\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 10 -firstRun $false
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun $false
 ```
 
 ### 🛍 Group Creation
