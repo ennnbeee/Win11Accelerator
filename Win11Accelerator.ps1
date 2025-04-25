@@ -718,7 +718,12 @@ Write-Host ''
 Write-Host "    - Capture all Windows Device or User objects from Entra ID." -ForegroundColor White
 Write-Host "    - Start a Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 Write-Host "    - Capture and process the outcome of the Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
-Write-Host "    - Assign a risk based flag to the Primary User or Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+if ($target -eq 'user') {
+    Write-Host "    - Assign a risk based flag to the Primary User object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+}
+else {
+    Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+}
 Write-Host ''
 Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
 Write-Host ''
