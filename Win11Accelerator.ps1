@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.2.2
+.VERSION 0.3
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME
@@ -19,6 +19,7 @@ v0.2.1 - Function improvements and bug fixes
 v0.2.2 - Changed logic if groups are to be created
 v0.2.3 - Improved function performance, and updated device dynamic groups
 v0.2.4 - Updated attribute assignment logic and module check logic
+v0.3  - Updated to create a Feature Update profile and assign the low risk group
 
 .PRIVATEDATA
 #>
@@ -53,6 +54,9 @@ Choice of Users or Devices.
 
 .PARAMETER createGroups
 Select whether the dynamic groups should be created as part of the script run.
+
+.PARAMETER deployFeatureUpdate
+Select whether you want to deploy the Feature Update to devices with a low risk score.
 
 .PARAMETER whatIf
 Select whether you want to run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.
@@ -89,14 +93,17 @@ param(
     [ValidateRange(1, 15)]
     [int]$extensionAttribute,
 
-    [Parameter(Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
-    [String]$scopeTag = 'default',
-
     [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
     [switch]$createGroups,
 
-    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
+    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
+    [switch]$deployFeatureUpdate,
+
+    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
     [Boolean]$firstRun = $true,
+
+    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
+    [String]$scopeTag = 'default',
 
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the Id of the Entra ID tenant to connect to')]
     [ValidateLength(36, 36)]
@@ -244,8 +251,7 @@ Function New-ReportFeatureUpdateReadiness() {
             "AadDeviceId",
             "Ownership"
         ],
-        "format": "csv",
-        "snapshotId": "MEMUpgradeReadinessDevice_00000000-0000-0000-0000-000000000001"
+        "format": "csv"
     }
 "@
 
@@ -536,7 +542,125 @@ Function New-MDMGroup() {
         Write-Output 'Entra ID security group was not created'
     }
 }
+Function New-FeatureUpdateProfile() {
 
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
+
+    param
+    (
+        [parameter(Mandatory = $true)]
+        $name,
+
+        [parameter(Mandatory = $true)]
+        [ValidateSet('22H2', '23H2', '24H2')]
+        $featureUpdateBuild,
+
+        [parameter(Mandatory = $false)]
+        [datetime]$startDate,
+
+        [parameter(Mandatory = $false)]
+        [datetime]$endDate,
+
+        [parameter(Mandatory = $false)]
+        [int]$groupInterval = 7,
+
+        [Parameter(Mandatory = $false)]
+        $scopeTagId = '00000'
+    )
+
+    if ($startDate -and $startDate -lt (Get-Date)) {
+        Write-Host 'Start Dates cannot be in the past' -ForegroundColor Yellow
+        break
+    }
+    if ($endDate -and $endDate -lt (Get-Date)) {
+        Write-Host 'End Dates cannot be in the past' -ForegroundColor Yellow
+        break
+    }
+
+    if (!$startDate) {
+        $startDate = (Get-Date).AddDays($groupInterval)
+    }
+    $startDateFormat = (Get-Date $startDate -Format 'yyyy-MM-ddTHH:mm:ss.fffZ')
+
+    if (!$endDate) {
+        $endDate = '2025-10-01T00:00:00.000Z'
+    }
+
+    $endDateFormat = (Get-Date $endDate -Format 'yyyy-MM-ddTHH:mm:ss.fffZ')
+
+    $featureUpdateVersion = switch ($featureUpdateBuild) {
+        '22H2' { 'Windows 11, version 22H2' } # Windows 11 22H2 (Nickel)
+        '23H2' { 'Windows 11, version 23H2' } # Windows 11 23H2 (Nickel)
+        '24H2' { 'Windows 11, version 24H2' } # Windows 11 24H2 (Germanium)
+    }
+
+    $graphApiVersion = 'Beta'
+    $Resource = 'deviceManagement/windowsFeatureUpdateProfiles'
+
+    $JSON = @"
+    {
+        "displayName": "$name",
+        "description": "",
+        "featureUpdateVersion": "$featureUpdateVersion",
+        "roleScopeTagIds": [
+            "$scopeTagId"
+        ],
+        "installFeatureUpdatesOptional": false,
+        "installLatestWindows10OnWindows11IneligibleDevice": false,
+        "rolloutSettings": {
+            "offerStartDateTimeInUTC": "$startDateFormat",
+            "offerEndDateTimeInUTC": "$endDateFormat",
+            "offerIntervalInDays": $groupInterval
+        }
+    }
+"@
+    $JSON
+    if ($PSCmdlet.ShouldProcess('Creating new Feature Update Profile')) {
+        try {
+            Test-JSONData -Json $JSON
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
+        }
+        catch {
+            Write-Error $_.Exception.Message
+            break
+        }
+    }
+    elseif ($WhatIfPreference.IsPresent) {
+        Write-Output 'Feature Update profile would have been created'
+    }
+    else {
+        Write-Output 'Feature Update profile was not created'
+    }
+}
+Function Get-FeatureUpdateProfile() {
+
+    [CmdletBinding()]
+
+    param
+    (
+        [parameter(Mandatory = $false)]
+        $id
+    )
+
+    $graphApiVersion = 'Beta'
+    if ($id) {
+        $Resource = "deviceManagement/windowsFeatureUpdateProfiles('$id')"
+    }
+    else {
+        $Resource = 'deviceManagement/windowsFeatureUpdateProfiles'
+    }
+
+    try {
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+        (Invoke-MgGraphRequest -Uri $uri -Method GET -OutputType PSObject).value
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        break
+    }
+
+}
 #endregion Functions
 
 #region testing
@@ -544,10 +668,11 @@ Function New-MDMGroup() {
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
 $extensionAttribute = 11
-$whatIf = $true
+$whatIf = $false
 $firstRun = $true
-$target = 'user'
-$createGroups = $false
+$target = 'device'
+$createGroups = $true
+$deployFeatureUpdate = $true
 #>
 #endregion testing
 
@@ -557,19 +682,19 @@ Write-Host '
 |  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.
 |  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|
 |________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|
-' -ForegroundColor Green
+' -ForegroundColor blue
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.2.4 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-04-25' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-05-26' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
 #endregion intro
 
 #region variables
-$groupPrefix = 'Win11Acc-'
+$prefix = 'Win11Acc-'
 $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 1 -Maximum 3
 
@@ -593,11 +718,11 @@ $deviceRule = "(device.deviceManagementAppId -ne null) and (device.deviceOwnersh
 $targetCase = (Get-Culture).TextInfo.ToTitleCase($target)
 
 $riskGroupArray = @()
-$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
 
 $groupsArray = @()
 foreach ($riskGroup in $riskGroupArray) {
@@ -613,12 +738,17 @@ $groupsDisplayArray = @()
 foreach ($groupArray in $groupsArray) {
     $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\', '') }
 }
+
+$featureUpdateProfileName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-FeatureUpdateProfile'
 #endregion variables
 
 #region module check
-$identity = [Security.Principal.WindowsIdentity]::GetCurrent()
-$principal = New-Object Security.Principal.WindowsPrincipal $identity
-$elevatedStatus = $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+if (!$IsMacOS -and !$IsLinux) {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal $identity
+    $elevatedStatus = $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+}
+
 $modules = @('Microsoft.Graph.Authentication')
 foreach ($module in $modules) {
     Write-Host "Checking for $module PowerShell module..." -ForegroundColor Cyan
@@ -715,7 +845,7 @@ else {
 Write-Host
 Write-Host 'The script will carry out the following:' -ForegroundColor Green
 Write-Host ''
-Write-Host "    - Capture all Windows Device or User objects from Entra ID." -ForegroundColor White
+Write-Host '    - Capture all Windows Device or User objects from Entra ID.' -ForegroundColor White
 Write-Host "    - Start a Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 Write-Host "    - Capture and process the outcome of the Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 if ($target -eq 'user') {
@@ -890,6 +1020,7 @@ Write-Host
 $featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
 Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
 While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
+    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
 
@@ -1139,3 +1270,11 @@ Write-Host ''
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
 Write-Host ''
 #endregion Attributes
+
+#region deployment
+if ($deployFeatureUpdate) {
+
+    New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild
+
+}
+#endregion deployment
