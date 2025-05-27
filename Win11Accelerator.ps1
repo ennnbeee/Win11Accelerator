@@ -614,7 +614,6 @@ Function New-FeatureUpdateProfile() {
         }
     }
 "@
-    $JSON
     if ($PSCmdlet.ShouldProcess('Creating new Feature Update Profile')) {
         try {
             Test-JSONData -Json $JSON
@@ -640,12 +639,12 @@ Function Get-FeatureUpdateProfile() {
     param
     (
         [parameter(Mandatory = $false)]
-        $id
+        $Id
     )
 
     $graphApiVersion = 'Beta'
     if ($id) {
-        $Resource = "deviceManagement/windowsFeatureUpdateProfiles('$id')"
+        $Resource = "deviceManagement/windowsFeatureUpdateProfiles('$Id')"
     }
     else {
         $Resource = 'deviceManagement/windowsFeatureUpdateProfiles'
@@ -660,6 +659,53 @@ Function Get-FeatureUpdateProfile() {
         break
     }
 
+}
+Function New-FeatureUpdateAssignment() {
+
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
+
+    param
+    (
+        [parameter(Mandatory = $true)]
+        $featureUpdateProfileId,
+
+        [parameter(Mandatory = $true)]
+        $groupId
+    )
+
+    $graphApiVersion = 'Beta'
+    $Resource = "deviceManagement/windowsFeatureUpdateProfiles/$featureUpdateProfileId/assign"
+
+    $JSON = @"
+{
+    "assignments": [
+        {
+            "target": {
+                "@odata.type": "#microsoft.graph.groupAssignmentTarget",
+                "groupId": "$groupId"
+            }
+        }
+    ]
+}
+"@
+
+    if ($PSCmdlet.ShouldProcess('Creating new Feature Update Profile assignment')) {
+        try {
+            Test-JSONData -Json $JSON
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
+        }
+        catch {
+            Write-Error $_.Exception.Message
+            break
+        }
+    }
+    elseif ($WhatIfPreference.IsPresent) {
+        Write-Output 'Feature Update profile assignment would have been created'
+    }
+    else {
+        Write-Output 'Feature Update profile assignment was not created'
+    }
 }
 #endregion Functions
 
@@ -947,39 +993,34 @@ Write-Host
 
 #region Group Creation
 Write-Host ''
-if ($firstRun -eq $true) {
-    if (!$createGroups) {
-        Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
+
+if (!$createGroups) {
+    Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
+}
+else {
+    Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
+}
+Write-Host ''
+$groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
+
+if ($createGroups) {
+    if ($firstRun -eq $true) {
+        Write-Host ''
+        Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
+        Write-Host ''
     }
-    else {
-        Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
-    }
-    Write-Host ''
 
-    $groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
-
-    if ($createGroups) {
-        if ($firstRun -eq $true) {
-            Write-Host ''
-            Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
-            Write-Host ''
-        }
-        else {
-            Write-Host ''
-            Write-Host 'Creating groups without confirmation as this is a re-run of the script.' -ForegroundColor Green
+    foreach ($group in $groupsArray) {
+        $groupName = $($group.displayName)
+        if ($groupName.length -gt 120) {
+            #shrinking group name to less than 120 characters
+            $groupName = $groupName[0..120] -join ''
         }
 
-        foreach ($group in $groupsArray) {
-            $groupName = $($group.displayName)
-            if ($groupName.length -gt 120) {
-                #shrinking group name to less than 120 characters
-                $groupName = $groupName[0..120] -join ''
-            }
-
-            if (!(Get-MDMGroup -groupName $groupName)) {
-                Write-Host ''
-                Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
-                $groupJSON = @"
+        if (!(Get-MDMGroup -groupName $groupName)) {
+            Write-Host ''
+            Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
+            $groupJSON = @"
     {
         "description": "$($group.description)",
         "displayName": "$groupName",
@@ -993,24 +1034,24 @@ if ($firstRun -eq $true) {
         "membershipRuleProcessingState": "On"
     }
 "@
-                if ($whatIf) {
-                    Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
-                    continue
-                }
-                else {
-                    New-MDMGroup -JSON $groupJSON | Out-Null
-                }
-                Write-Host "Group $($group.displayName) created successfully." -ForegroundColor Green
-            }
-            else {
-                Write-Host "Group $($group.displayName) already exists, skipping creation." -ForegroundColor Yellow
+            if ($whatIf) {
+                Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
                 continue
             }
+            else {
+                New-MDMGroup -JSON $groupJSON | Out-Null
+            }
+            Write-Host "Group $($group.displayName) created successfully." -ForegroundColor Green
         }
-        Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
-        Write-Host ''
+        else {
+            Write-Host "Group $($group.displayName) already exists, skipping creation." -ForegroundColor Yellow
+            continue
+        }
     }
+    Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
+    Write-Host ''
 }
+
 #endregion Group Creation
 
 #region Feature Update Readiness
@@ -1273,8 +1314,30 @@ Write-Host ''
 
 #region deployment
 if ($deployFeatureUpdate) {
+    $lowRiskGroupName = $groupsArray[0].displayName
+    $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
 
-    New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild
+    if ($firstRun -eq $true) {
+        Write-Host ''
+        Write-Warning -Message "You are about to create a Feature Update profile $featureUpdateProfileName and assign it to group $lowRiskGroupName. Please confirm you want to continue." -WarningAction Inquire
+        Write-Host ''
+    }
+
+    $featureUpdateProfiles = Get-FeatureUpdateProfile
+    if ($featureUpdateProfileName -in $featureUpdateProfiles.displayName) {
+        Write-Host "Feature Update Profile $featureUpdateProfileName already exists, skipping profile creation." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host ''
+        Write-Host "Creating Feature Update Profile $featureUpdateProfileName..." -ForegroundColor Cyan
+        $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild
+        Write-Host ''
+        Write-host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
+        New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
+        Write-Host ''
+        Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
+
+    }
 
 }
 #endregion deployment
