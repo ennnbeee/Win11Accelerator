@@ -58,6 +58,9 @@ Select whether the dynamic groups should be created as part of the script run.
 .PARAMETER deployFeatureUpdate
 Select whether you want to deploy the Feature Update to devices with a low risk score.
 
+.PARAMETER days
+The number of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start.
+
 .PARAMETER whatIf
 Select whether you want to run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.
 
@@ -71,10 +74,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.2.4
+Version:        0.3
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  25/04/2025
+Creation Date:  28/05/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -99,10 +102,13 @@ param(
     [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
     [switch]$deployFeatureUpdate,
 
-    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
+    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'The amount of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start')]
+    [int]$days = 7,
+
+    [Parameter(Position = 6, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
     [Boolean]$firstRun = $true,
 
-    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
+    [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
     [String]$scopeTag = 'default',
 
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the Id of the Entra ID tenant to connect to')]
@@ -1314,30 +1320,39 @@ Write-Host ''
 
 #region deployment
 if ($deployFeatureUpdate) {
-    $lowRiskGroupName = $groupsArray[0].displayName
-    $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
 
     if ($firstRun -eq $true) {
         Write-Host ''
-        Write-Warning -Message "You are about to create a Feature Update profile $featureUpdateProfileName and assign it to group $lowRiskGroupName. Please confirm you want to continue." -WarningAction Inquire
+        Write-Warning -Message 'You are about to create a Feature Update profile and assign it to group. Please confirm you want to continue.' -WarningAction Inquire
         Write-Host ''
     }
 
     $featureUpdateProfiles = Get-FeatureUpdateProfile
     if ($featureUpdateProfileName -in $featureUpdateProfiles.displayName) {
-        Write-Host "Feature Update Profile $featureUpdateProfileName already exists, skipping profile creation." -ForegroundColor Yellow
+        Write-Host "Feature Update Profile $featureUpdateProfileName already exists, skipping profile creation." -ForegroundColor Cyan
+        Write-Host ''
     }
     else {
-        Write-Host ''
         Write-Host "Creating Feature Update Profile $featureUpdateProfileName..." -ForegroundColor Cyan
-        $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild
+        $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild -groupInterval $days
         Write-Host ''
-        Write-host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
-        New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
-        Write-Host ''
-        Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
+        $lowRiskGroupName = $groupsArray[0].displayName
+        $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
+        if ($createGroups) {
+            Write-Host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
+            New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
+            Write-Host ''
+            Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
+            Write-Host ''
+        }
+        else {
+            Write-Host ''
+            Write-Host "Feature Update Profile $featureUpdateProfileName created, but not assigned to the low risk group." -ForegroundColor Green
+            Write-Host ''
+            Write-Host 'Please manually create the dynamic groups and assign this Feature Update profile to the Low Risk Group.' -ForegroundColor Magenta
+            Write-Host ''
+        }
 
     }
-
 }
 #endregion deployment

@@ -19,6 +19,8 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
+- **v0.3**
+  - Allows for deployment of the selected Feature Update to the low risk group
 - v0.2.4
   - Updated to support creation of Dynamic Groups
   - Included a whatIf mode
@@ -76,8 +78,13 @@ If you want the script to create dynamic groups based on the extension attribute
 
 This will allow for groups to be created with a prefix of **Win11Acc-**, only if a group with the same name does not already exist.
 
-> [!NOTE]
-> If you want to change the Group name prefix update the `$groupPrefix` variable.
+### 🖥 Feature Update Creation
+
+If you want the script to create a Feature Update deployment and deploy it to the **low risk group**, use the `deployFeatureUpdate` parameter; the Feature Update will start **x** `days` from when the script has run, with a group interval of **x** `days`.
+
+```PowerShell
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -deployFeatureUpdate -days 7
+```
 
 ## 🎬 Demos
 
