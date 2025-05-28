@@ -20,7 +20,7 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 ## 🔄 Updates
 
 - **v0.3**
-  - Allows for deployment of the selected Feature Update to the low risk group
+  - Allows for automatic deployment of the selected Feature Update to the low risk group
 - v0.2.4
   - Updated to support creation of Dynamic Groups
   - Included a whatIf mode

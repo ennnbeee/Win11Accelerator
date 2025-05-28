@@ -3,7 +3,7 @@
 .VERSION 0.3
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
-.COMPANYNAME
+.COMPANYNAME odds+endpoints
 .COPYRIGHT GPL
 .TAGS Graph Intune Windows
 .LICENSEURI https://github.com/ennnbeee/Win11Accelerator/blob/main/LICENSE
