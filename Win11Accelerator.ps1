@@ -179,14 +179,14 @@ Connect-ToGraph -tenantId $tenantId -appId $app -appSecret $secret
 
             if ($version -eq 2) {
                 Write-Host 'Version 2 module detected'
-                $accesstokenfinal = ConvertTo-SecureString -String $accessToken -AsPlainText -Force
+                $accessTokenFinal = ConvertTo-SecureString -String $accessToken -AsPlainText -Force
             }
             else {
                 Write-Host 'Version 1 Module Detected'
                 Select-MgProfile -Name Beta
-                $accesstokenfinal = $accessToken
+                $accessTokenFinal = $accessToken
             }
-            $graph = Connect-MgGraph -AccessToken $accesstokenfinal
+            $graph = Connect-MgGraph -AccessToken $accessTokenFinal
             Write-Host "Connected to Intune tenant $TenantId using app-based authentication (Azure AD authentication not supported)"
         }
         else {
