@@ -19,7 +19,11 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.3**
+- **v0.4**
+  - Now tags devices with risk score and the App Compatibility issue for medium and high risk devices
+  - Groups updated to allow for App Compatibility tagging
+  - Automatic creation of App Compatibility groups for assignment of drivers or apps in Intune
+- v0.3
   - Allows for automatic deployment of the selected Feature Update to the low risk group
 - v0.2.4
   - Updated to support creation of Dynamic Groups

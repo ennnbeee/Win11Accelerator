@@ -20,6 +20,7 @@ v0.2.2 - Changed logic if groups are to be created
 v0.2.3 - Improved function performance, and updated device dynamic groups
 v0.2.4 - Updated attribute assignment logic and module check logic
 v0.3  - Updated to create a Feature Update profile and assign the low risk group
+v0.4 - Updated to tag devices with risk and the app compat issue for medium and low risk devices
 
 .PRIVATEDATA
 #>
@@ -52,6 +53,9 @@ Choice of 1 to 15
 Select the whether you want to target the deployment to groups of users or groups of devices.
 Choice of Users or Devices.
 
+.PARAMETER appCompat
+Select whether devices are tagged with their app compatibility issues, this will tag devices with the type of app compatibility issues they have.
+
 .PARAMETER createGroups
 Select whether the dynamic groups should be created as part of the script run.
 
@@ -74,10 +78,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.3
+Version:        0.4
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  28/05/2025
+Creation Date:  19/06/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -99,16 +103,19 @@ param(
     [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
     [switch]$createGroups,
 
-    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
+    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether the App Compatibility issues should be tagged on devices')]
+    [switch]$appCompat,
+
+    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
     [switch]$deployFeatureUpdate,
 
-    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'The amount of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start')]
+    [Parameter(Position = 6, Mandatory = $false, HelpMessage = 'The amount of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start')]
     [int]$days = 7,
 
-    [Parameter(Position = 6, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
+    [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
     [Boolean]$firstRun = $true,
 
-    [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
+    [Parameter(Position = 8, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
     [String]$scopeTag = 'default',
 
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the Id of the Entra ID tenant to connect to')]
@@ -280,7 +287,7 @@ Function New-ReportFeatureUpdateReadiness() {
         Write-Output 'Feature Update report was not created'
     }
 }
-Function Get-ReportFeatureUpdateReadiness() {
+Function Get-ReportFeatureUpdate() {
 
     [cmdletbinding()]
 
@@ -311,6 +318,55 @@ Function Get-ReportFeatureUpdateReadiness() {
     catch {
         Write-Error $_.Exception.Message
         break
+    }
+}
+Function New-ReportFeatureUpdateCompatibility() {
+
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
+
+    param
+    (
+        [parameter(Mandatory = $true)]
+        $featureUpdate
+    )
+
+    $graphApiVersion = 'Beta'
+    $Resource = 'deviceManagement/reports/exportJobs'
+
+    $JSON = @"
+    {
+        "reportName": "MEMUpgradeReadinessOrgAppAndDriverV2",
+        "filter": "(TargetOS eq '$featureUpdate')",
+        "select": [
+            "AssetType",
+            "AssetName",
+            "AssetVendor",
+            "AssetVersion",
+            "DeviceIssuesCount",
+            "ReadinessStatus",
+            "IssueTypes"
+        ],
+        "format": "csv"
+    }
+"@
+
+
+    if ($PSCmdlet.ShouldProcess('Creating new Feature Update Compatibility Report')) {
+        try {
+            Test-JSONData -Json $JSON
+            $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json'
+        }
+        catch {
+            Write-Error $_.Exception.Message
+            break
+        }
+    }
+    elseif ($WhatIfPreference.IsPresent) {
+        Write-Output 'Feature Update Compatibility report would have been created'
+    }
+    else {
+        Write-Output 'Feature Update Compatibility report was not created'
     }
 }
 Function Add-ObjectAttribute() {
@@ -719,7 +775,7 @@ Function New-FeatureUpdateAssignment() {
 <#
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
-$extensionAttribute = 11
+$extensionAttribute = 10
 $whatIf = $false
 $firstRun = $true
 $target = 'device'
@@ -738,8 +794,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-05-26' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.4 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-19' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -771,8 +827,8 @@ $targetCase = (Get-Culture).TextInfo.ToTitleCase($target)
 
 $riskGroupArray = @()
 $riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -startsWith `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -startsWith `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
 $riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
 $riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
 
@@ -791,6 +847,7 @@ foreach ($groupArray in $groupsArray) {
     $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\', '') }
 }
 
+$safeAttributes = @("W11-$featureUpdateBuild-LowRisk", "W11-$featureUpdateBuild-MediumRisk", "W11-$featureUpdateBuild-HighRisk", "W11-$featureUpdateBuild-NotReady", "W11-$featureUpdateBuild-Unknown")
 $featureUpdateProfileName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-FeatureUpdateProfile'
 #endregion variables
 
@@ -906,6 +963,7 @@ if ($target -eq 'user') {
 else {
     Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
 }
+Write-Host "    - Append an App Compatibility reason to a risk based flag using Extension Attribute $extensionAttributeValue." -ForegroundColor White
 Write-Host ''
 Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
 Write-Host ''
@@ -965,7 +1023,6 @@ foreach ($itemEntraDevice in $entraDevices) {
 Write-Host
 Write-Host "Checking for existing data in attribute $extensionAttributeValue in Entra ID..." -ForegroundColor Cyan
 $attributeErrors = 0
-$safeAttributes = @("W11-$featureUpdateBuild-LowRisk", "W11-$featureUpdateBuild-MediumRisk", "W11-$featureUpdateBuild-HighRisk", "W11-$featureUpdateBuild-NotReady", "W11-$featureUpdateBuild-Unknown")
 
 $entraObjects = switch ($target) {
     'user' { $entraUsers }
@@ -977,11 +1034,11 @@ $extAttribute = switch ($target) {
     'device' { 'extensionAttributes' }
 }
 
-
 foreach ($entraObject in $entraObjects) {
 
     $attribute = ($entraObject.$extAttribute | ConvertTo-Json | ConvertFrom-Json).$extensionAttributeValue
-    if ($attribute -notin $safeAttributes) {
+    $trimAttribute = ($attribute -split ('-'))[0..2] -join '-'
+    if ($trimAttribute -notin $safeAttributes) {
         if ($null -ne $attribute) {
             Write-Host "$($entraObject.displayName) already has a value of '$attribute' configured in $extensionAttributeValue" -ForegroundColor Yellow
             $attributeErrors = $attributeErrors + 1
@@ -1060,13 +1117,50 @@ if ($createGroups) {
 
 #endregion Group Creation
 
+#region Feature Update Compatibility
+if ($appCompat) {
+    Write-Host "Starting the Feature Update Compatibility Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
+    Write-Host
+
+    $featureUpdateCompatibilityReport = New-ReportFeatureUpdateCompatibility -featureUpdate $featureUpdate
+    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
+    While ((Get-ReportFeatureUpdate -Id $featureUpdateCompatibilityReport.id).status -ne 'completed') {
+        Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
+        Start-Sleep -Seconds $rndWait
+    }
+
+    Write-Host "Windows 11 $featureUpdateBuild feature update compatibility report completed processing." -ForegroundColor Green
+    Write-Host
+    Write-Host "Getting Windows 11 $featureUpdateBuild feature update compatibility Report data..." -ForegroundColor Magenta
+    Write-Host
+    $csvCompatibilityURL = (Get-ReportFeatureUpdate -Id $featureUpdateCompatibilityReport.id).url
+
+    $csvHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
+    Add-Type -AssemblyName System.IO.Compression
+    $csvCompatibilityReportStream = Invoke-WebRequest -Uri $csvCompatibilityURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop
+    $csvCompatibilityReportZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($csvCompatibilityReportStream.Content))
+    $csvCompatibilityReportEntries = [System.IO.StreamReader]::new($csvCompatibilityReportZip.GetEntry($csvCompatibilityReportZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
+
+    if ($($csvCompatibilityReportEntries.Count) -eq 0) {
+        Write-Host 'No Feature Update compatibility report details were found' -ForegroundColor Yellow
+
+    }
+    else {
+        Write-Host "Found Feature Update Report Details for $($csvCompatibilityReportEntries.Count) entries." -ForegroundColor Green
+        Write-Host
+        Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($csvReportDevices.Count) devices..." -ForegroundColor Magenta
+    }
+}
+
+#endregion Feature Update Compatibility
+
 #region Feature Update Readiness
 Write-Host "Starting the Feature Update Readiness Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
 Write-Host
 
-$featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
+$featureUpdateReadinessReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
 Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
-While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
+While ((Get-ReportFeatureUpdate -Id $featureUpdateReadinessReport.id).status -ne 'completed') {
     Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
@@ -1075,25 +1169,24 @@ Write-Host "Windows 11 $featureUpdateBuild feature update readiness completed pr
 Write-Host
 Write-Host "Getting Windows 11 $featureUpdateBuild feature update readiness Report data..." -ForegroundColor Magenta
 Write-Host
-$csvURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
+$csvReadinessURL = (Get-ReportFeatureUpdate -Id $featureUpdateReadinessReport.id).url
 
 $csvHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
 Add-Type -AssemblyName System.IO.Compression
-$csvReportStream = Invoke-WebRequest -Uri $csvURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop
-$csvReportZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($csvReportStream.Content))
-$csvReportDevices = [System.IO.StreamReader]::new($csvReportZip.GetEntry($csvReportZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
+$csvReadinessReportStream = Invoke-WebRequest -Uri $csvReadinessURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop
+$csvReadinessReportZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($csvReadinessReportStream.Content))
+$csvReadinessReportDevices = [System.IO.StreamReader]::new($csvReadinessReportZip.GetEntry($csvReadinessReportZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
 
-if ($($csvReportDevices.Count) -eq 0) {
+if ($($csvReadinessReportDevices.Count) -eq 0) {
     Write-Warning 'No Feature Update Readiness report details were found, please review the pre-requisites ' -WarningAction Inquire
-
 }
 
-Write-Host "Found Feature Update Report Details for $($csvReportDevices.Count) devices." -ForegroundColor Green
+Write-Host "Found Feature Update Report Details for $($csvReadinessReportDevices.Count) devices." -ForegroundColor Green
 Write-Host
-Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($csvReportDevices.Count) devices..." -ForegroundColor Magenta
+Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($csvReadinessReportDevices.Count) devices..." -ForegroundColor Magenta
 
 $reportArray = @()
-foreach ($csvReportDevice in $csvReportDevices) {
+foreach ($csvReportDevice in $csvReadinessReportDevices) {
 
     $riskState = switch ($csvReportDevice.ReadinessStatus) {
         '0' { "W11-$featureUpdateBuild-LowRisk" }
@@ -1170,7 +1263,7 @@ foreach ($csvReportDevice in $csvReportDevices) {
 }
 $reportArray = $reportArray | Sort-Object -Property ReadinessStatus
 
-Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($csvReportDevices.Count) devices." -ForegroundColor Green
+Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($csvReadinessReportDevices.Count) devices." -ForegroundColor Green
 Write-Host
 #endregion Feature Update Readiness
 
