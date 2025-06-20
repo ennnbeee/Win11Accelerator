@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3
+.VERSION 0.3.1
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -20,6 +20,7 @@ v0.2.2 - Changed logic if groups are to be created
 v0.2.3 - Improved function performance, and updated device dynamic groups
 v0.2.4 - Updated attribute assignment logic and module check logic
 v0.3  - Updated to create a Feature Update profile and assign the low risk group
+v0.3.1 - Bug fixes for group creation and assignment, and improved error handling
 
 .PRIVATEDATA
 #>
@@ -74,10 +75,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.3
+Version:        0.3.1
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  28/05/2025
+Creation Date:  20/06/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -97,10 +98,10 @@ param(
     [int]$extensionAttribute,
 
     [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
-    [switch]$createGroups,
+    [Boolean]$createGroups = $false,
 
     [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
-    [switch]$deployFeatureUpdate,
+    [Boolean]$deployFeatureUpdate = $false,
 
     [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'The amount of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start')]
     [int]$days = 7,
@@ -124,7 +125,7 @@ param(
     [String]$appSecret,
 
     [Parameter(Mandatory = $false, HelpMessage = 'Run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.')]
-    [switch]$whatIf
+    [Boolean]$whatIf = $false
 
 )
 
@@ -738,8 +739,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-05-26' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.1 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-20' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -751,7 +752,7 @@ $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 1 -Maximum 3
 
 $requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
-if ($createGroups) {
+if ($createGroups -eq $true) {
     $requiredScopes += @('Group.ReadWrite.All')
 }
 [String[]]$scopes = $requiredScopes -join ', '
@@ -888,7 +889,7 @@ else {
 #region Start
 Write-Host
 Start-Sleep -Seconds $rndWait
-if ($whatIf) {
+if ($whatIf -eq $true) {
     Write-Host "Starting the 'Win11Accelerator' Script in whatIf mode" -ForegroundColor magenta
 }
 else {
@@ -909,7 +910,7 @@ else {
 Write-Host ''
 Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
 Write-Host ''
-if ($createGroups) {
+if ($createGroups -eq $true) {
     Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
     Write-Host ''
 }
@@ -1000,7 +1001,7 @@ Write-Host
 #region Group Creation
 Write-Host ''
 
-if (!$createGroups) {
+if ($createGroups -eq $false) {
     Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
 }
 else {
@@ -1009,7 +1010,7 @@ else {
 Write-Host ''
 $groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
 
-if ($createGroups) {
+if ($createGroups -eq $true) {
     if ($firstRun -eq $true) {
         Write-Host ''
         Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
@@ -1040,7 +1041,7 @@ if ($createGroups) {
         "membershipRuleProcessingState": "On"
     }
 "@
-            if ($whatIf) {
+            if ($whatIf -eq $true) {
                 Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
                 continue
             }
@@ -1182,7 +1183,6 @@ if ($firstRun -eq $true) {
 }
 Write-Host "Assigning the Risk attributes to $extensionAttributeValue..." -ForegroundColor cyan
 Write-Host ''
-# users are a pain
 if ($target -eq 'user') {
     # Removes devices with no primary user
     $userReportArray = $reportArray | Where-Object { $_.userPrincipalName -ne $null -and $_.userPrincipalName -ne '' } | Group-Object userPrincipalName
@@ -1245,7 +1245,7 @@ if ($target -eq 'user') {
             }
         }
 
-        If (!$whatIf) {
+        If ($whatIf -eq $false) {
             Start-Sleep -Seconds $rndWait
             if (!([string]::IsNullOrEmpty($userObject.userObjectID))) {
                 Add-ObjectAttribute -object User -Id $($userObject.userObjectID) -JSON $JSON
@@ -1264,7 +1264,6 @@ if ($target -eq 'user') {
 
 }
 
-# devices
 else {
     Foreach ($device in $reportArray) {
 
@@ -1293,7 +1292,7 @@ else {
 "@
 
             # Sleep to stop throttling issues
-            If (!$whatIf) {
+            If ($whatIf -eq $false) {
                 Start-Sleep -Seconds $rndWait
                 if (!([string]::IsNullOrEmpty($device.deviceObjectID))) {
                     Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
@@ -1301,12 +1300,13 @@ else {
                 else {
                     Write-Host "$($device.DeviceName) risk tag could not be assigned for Windows 11 $featureUpdateBuild" -ForegroundColor DarkRed
                 }
-                if ($($device.ReadinessStatus) -eq 4) {
-                    Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
-                }
-                else {
-                    Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
-                }
+
+            }
+            if ($($device.ReadinessStatus) -eq 4) {
+                Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+            }
+            else {
+                Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
             }
 
 
@@ -1319,7 +1319,7 @@ Write-Host ''
 #endregion Attributes
 
 #region deployment
-if ($deployFeatureUpdate) {
+if ($deployFeatureUpdate -eq $true) {
 
     if ($firstRun -eq $true) {
         Write-Host ''
@@ -1334,25 +1334,30 @@ if ($deployFeatureUpdate) {
     }
     else {
         Write-Host "Creating Feature Update Profile $featureUpdateProfileName..." -ForegroundColor Cyan
-        $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild -groupInterval $days
         Write-Host ''
-        $lowRiskGroupName = $groupsArray[0].displayName
-        $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
-        if ($createGroups) {
-            Write-Host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
-            New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
-            Write-Host ''
-            Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
-            Write-Host ''
+        if ($whatIf -eq $true) {
+            Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
+            continue
         }
         else {
-            Write-Host ''
-            Write-Host "Feature Update Profile $featureUpdateProfileName created, but not assigned to the low risk group." -ForegroundColor Green
-            Write-Host ''
-            Write-Host 'Please manually create the dynamic groups and assign this Feature Update profile to the Low Risk Group.' -ForegroundColor Magenta
-            Write-Host ''
+            $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild -groupInterval $days
+            $lowRiskGroupName = $groupsArray[0].displayName
+            $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
+            if ($createGroups -eq $true) {
+                Write-Host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
+                New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
+                Write-Host ''
+                Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
+                Write-Host ''
+            }
+            else {
+                Write-Host ''
+                Write-Host "Feature Update Profile $featureUpdateProfileName created, but not assigned to the low risk group." -ForegroundColor Green
+                Write-Host ''
+                Write-Host 'Please manually create the dynamic groups and assign this Feature Update profile to the Low Risk Group.' -ForegroundColor Magenta
+                Write-Host ''
+            }
         }
-
     }
 }
 #endregion deployment

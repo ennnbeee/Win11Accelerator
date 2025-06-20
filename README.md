@@ -19,7 +19,9 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.3**
+- **v0.3.1**
+  - Bug fixes and update to parameter configurations
+- v0.3
   - Allows for automatic deployment of the selected Feature Update to the low risk group
 - v0.2.4
   - Updated to support creation of Dynamic Groups
@@ -49,7 +51,7 @@ Download the `Win11Accelerator.ps1` script, and from the saved location in a sta
 Run the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 11** with warning prompts in **whatIf** mode where no changes are made:
 
 ```powershell
-.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 11  -whatIf
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 11 -whatIf $true
 ```
 
 ### ⚙ General Usage
@@ -73,7 +75,7 @@ Following the initial run the script, you can suppress the warning prompts by ru
 If you want the script to create dynamic groups based on the extension attribute risk state, include the switch parameter `createGroups`:
 
 ```PowerShell
-.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -createGroups
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -createGroups $true
 ```
 
 This will allow for groups to be created with a prefix of **Win11Acc-**, only if a group with the same name does not already exist.
@@ -83,7 +85,7 @@ This will allow for groups to be created with a prefix of **Win11Acc-**, only if
 If you want the script to create a Feature Update deployment and deploy it to the **low risk group**, use the `deployFeatureUpdate` parameter; the Feature Update will start **x** `days` from when the script has run, with a group interval of **x** `days`.
 
 ```PowerShell
-.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -deployFeatureUpdate -days 7
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -deployFeatureUpdate $true -days 7
 ```
 
 ## 🎬 Demos
