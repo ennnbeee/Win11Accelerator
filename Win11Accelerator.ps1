@@ -230,6 +230,39 @@ Function Test-JSONData() {
     }
 
 }
+Function Get-ReportFeatureUpdate() {
+
+    [cmdletbinding()]
+
+    param (
+
+        [parameter(Mandatory = $true)]
+        $Id
+
+    )
+
+    $graphApiVersion = 'Beta'
+    $Resource = "deviceManagement/reports/exportJobs('$Id')"
+
+    try {
+
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+        if ($id) {
+            Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject
+        }
+        elseif ($JSON) {
+            $tempFile = [System.IO.Path]::GetTempFileName()
+            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json' -OutputFilePath $tempFile
+            Get-Content -Raw $tempFile | ConvertFrom-Json
+            Remove-Item $tempFile
+        }
+
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        break
+    }
+}
 Function New-ReportFeatureUpdateReadiness() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
@@ -287,39 +320,6 @@ Function New-ReportFeatureUpdateReadiness() {
         Write-Output 'Feature Update report was not created'
     }
 }
-Function Get-ReportFeatureUpdate() {
-
-    [cmdletbinding()]
-
-    param (
-
-        [parameter(Mandatory = $true)]
-        $Id
-
-    )
-
-    $graphApiVersion = 'Beta'
-    $Resource = "deviceManagement/reports/exportJobs('$Id')"
-
-    try {
-
-        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
-        if ($id) {
-            Invoke-MgGraphRequest -Uri $uri -Method Get -OutputType PSObject
-        }
-        elseif ($JSON) {
-            $tempFile = [System.IO.Path]::GetTempFileName()
-            Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json' -OutputFilePath $tempFile
-            Get-Content -Raw $tempFile | ConvertFrom-Json
-            Remove-Item $tempFile
-        }
-
-    }
-    catch {
-        Write-Error $_.Exception.Message
-        break
-    }
-}
 Function New-ReportFeatureUpdateCompatibility() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
@@ -368,6 +368,65 @@ Function New-ReportFeatureUpdateCompatibility() {
     else {
         Write-Output 'Feature Update Compatibility report was not created'
     }
+}
+Function Get-FeatureUpdateCompatibilityDetail() {
+
+    [CmdletBinding()]
+
+    param
+    (
+        [parameter(Mandatory = $true)]
+        $featureUpdate,
+
+        [parameter(Mandatory = $true)]
+        $assetType,
+
+        [parameter(Mandatory = $true)]
+        $assetName,
+
+        [parameter(Mandatory = $true)]
+        $assetVendor,
+
+        [parameter(Mandatory = $true)]
+        $assetVersion,
+
+        [parameter(Mandatory = $true)]
+        $readinessStatus
+    )
+
+    $graphApiVersion = 'Beta'
+    $Resource = 'deviceManagement/reports/getReportFilters'
+    $filter = "(TargetOS eq '$featureUpdate') and (AssetType eq '$assetType') and (AssetName eq '$assetName') and (AssetVendor eq '$assetVendor') and (AssetVersion eq '$assetVersion') and (ReadinessStatus eq '$readinessStatus')"
+    $JSON = @"
+    {
+        "name": "MEMUpgradeReadinessOprDevicesPerAsset",
+        "top": 40,
+        "select": [
+            "DeviceName",
+            "DeviceManufacturer",
+            "DeviceModel",
+            "OSVersion",
+            "IssueTypes"
+        ],
+        "skip": 0,
+        "filter": "$filter",
+        "orderBy": [
+            "AssetName asc"
+        ]
+    }
+"@
+    try {
+        Test-JSONData -Json $JSON
+        $uri = "https://graph.microsoft.com/$graphApiVersion/$($Resource)"
+        Invoke-MgGraphRequest -Uri $uri -Method Post -Body $JSON -ContentType 'application/json' -OutputType PSObject
+
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        break
+    }
+
+
 }
 Function Add-ObjectAttribute() {
 
@@ -775,12 +834,15 @@ Function New-FeatureUpdateAssignment() {
 <#
 $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
-$extensionAttribute = 10
-$whatIf = $false
+$extensionAttribute = 11
+$whatIf = $true
 $firstRun = $true
 $target = 'device'
 $createGroups = $true
 $deployFeatureUpdate = $true
+$tenantId = '1ea1b268-a9a2-46bd-aaa5-2709ea06c75b'
+$appId = 'c6333db0-a55a-4009-9636-c5802b8dcdd5'
+$appSecret = ''
 #>
 #endregion testing
 
@@ -958,12 +1020,14 @@ Write-Host '    - Capture all Windows Device or User objects from Entra ID.' -Fo
 Write-Host "    - Start a Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 Write-Host "    - Capture and process the outcome of the Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 if ($target -eq 'user') {
-    Write-Host "    - Assign a risk based flag to the Primary User object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+    Write-Host "    - Assign a risk based flag to the Primary User object using $extensionAttributeValue" -ForegroundColor White
 }
 else {
-    Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
+    Write-Host "    - Assign a risk based flag to the Device object using $extensionAttributeValue" -ForegroundColor White
 }
-Write-Host "    - Append an App Compatibility reason to a risk based flag using Extension Attribute $extensionAttributeValue." -ForegroundColor White
+if ($appCompat) {
+    Write-Host "    - Append an App Compatibility reason to a risk based flag using $extensionAttributeValue." -ForegroundColor White
+}
 Write-Host ''
 Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
 Write-Host ''
@@ -1123,9 +1187,8 @@ if ($appCompat) {
     Write-Host
 
     $featureUpdateCompatibilityReport = New-ReportFeatureUpdateCompatibility -featureUpdate $featureUpdate
-    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     While ((Get-ReportFeatureUpdate -Id $featureUpdateCompatibilityReport.id).status -ne 'completed') {
-        Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
+        Write-Host 'Waiting for the Feature Update Compatibility report to finish processing...' -ForegroundColor Cyan
         Start-Sleep -Seconds $rndWait
     }
 
@@ -1148,7 +1211,14 @@ if ($appCompat) {
     else {
         Write-Host "Found Feature Update Report Details for $($csvCompatibilityReportEntries.Count) entries." -ForegroundColor Green
         Write-Host
-        Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($csvReportDevices.Count) devices..." -ForegroundColor Magenta
+        Write-Host "Processing Windows 11 $featureUpdateBuild feature update compatibility Report data for $($csvCompatibilityReportEntries.Count) issues..." -ForegroundColor Magenta
+
+        foreach ($issue in $csvCompatibilityReportEntries[1]) {
+            $issueDetails = Get-FeatureUpdateCompatibilityDetail -featureUpdate $featureUpdate -assetType $issue.AssetType -assetName $issue.AssetName -assetVendor $issue.AssetVendor -assetVersion $issue.AssetVersion -readinessStatus $issue.ReadinessStatus
+
+            $issueDetails.TotalRowCount
+        }
+
     }
 }
 
@@ -1159,9 +1229,8 @@ Write-Host "Starting the Feature Update Readiness Report for Windows 11 $feature
 Write-Host
 
 $featureUpdateReadinessReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
-Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
 While ((Get-ReportFeatureUpdate -Id $featureUpdateReadinessReport.id).status -ne 'completed') {
-    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
+    Write-Host 'Waiting for the Feature Update Readiness report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
 
