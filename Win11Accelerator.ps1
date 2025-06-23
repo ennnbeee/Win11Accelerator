@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.1
+.VERSION 0.3.2
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -21,6 +21,7 @@ v0.2.3 - Improved function performance, and updated device dynamic groups
 v0.2.4 - Updated attribute assignment logic and module check logic
 v0.3  - Updated to create a Feature Update profile and assign the low risk group
 v0.3.1 - Bug fixes for group creation and assignment, and improved error handling
+v0.3.2 - Bug fixes for attribute assignment and whatIf mode
 
 .PRIVATEDATA
 #>
@@ -722,10 +723,10 @@ $scopeTag = 'default'
 $featureUpdateBuild = '24H2'
 $extensionAttribute = 11
 $whatIf = $false
-$firstRun = $true
+$firstRun = $false
 $target = 'device'
-$createGroups = $true
-$deployFeatureUpdate = $true
+$createGroups = $false
+$deployFeatureUpdate = $false
 #>
 #endregion testing
 
@@ -739,8 +740,8 @@ Write-Host '
 
 Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.1 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-20' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.2 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-23' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -890,10 +891,10 @@ else {
 Write-Host
 Start-Sleep -Seconds $rndWait
 if ($whatIf -eq $true) {
-    Write-Host "Starting the 'Win11Accelerator' Script in whatIf mode" -ForegroundColor magenta
+    Write-Host "Starting the 'Win11Accelerator' Script in whatIf mode" -ForegroundColor yellow
 }
 else {
-    Write-Host "Starting the 'Win11Accelerator' Script" -ForegroundColor Green
+    Write-Host "Starting the 'Win11Accelerator' Script in production mode" -ForegroundColor Red
 }
 Write-Host
 Write-Host 'The script will carry out the following:' -ForegroundColor Green
@@ -1000,15 +1001,16 @@ Write-Host
 
 #region Group Creation
 Write-Host ''
-
-if ($createGroups -eq $false) {
-    Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
+if ($firstRun -eq $true) {
+    if ($createGroups -eq $false) {
+        Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
+    }
+    Write-Host ''
+    $groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
 }
-else {
-    Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
-}
-Write-Host ''
-$groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
 
 if ($createGroups -eq $true) {
     if ($firstRun -eq $true) {
@@ -1263,7 +1265,6 @@ if ($target -eq 'user') {
     }
 
 }
-
 else {
     Foreach ($device in $reportArray) {
 
@@ -1296,9 +1297,10 @@ else {
                 Start-Sleep -Seconds $rndWait
                 if (!([string]::IsNullOrEmpty($device.deviceObjectID))) {
                     Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
+                    Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
                 }
                 else {
-                    Write-Host "$($device.DeviceName) risk tag could not be assigned for Windows 11 $featureUpdateBuild" -ForegroundColor DarkRed
+                    Write-Host "$($device.DeviceName) risk tag could not be assigned for Windows 11 $featureUpdateBuild as deviceID is missing" -ForegroundColor DarkRed
                 }
 
             }
@@ -1306,10 +1308,10 @@ else {
                 Write-Host "$($device.DeviceName) risk tag removed as now updated Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
             }
             else {
-                Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+                if ($whatIf -eq $true) {
+                    Write-Host "$($device.DeviceName) assigned risk tag $($device.RiskState) to $extensionAttributeValue for Windows 11 $featureUpdateBuild" -ForegroundColor $riskColour
+                }
             }
-
-
         }
     }
 }

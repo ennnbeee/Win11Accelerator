@@ -19,7 +19,9 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.3.1**
+- **v0.3.2**
+  - Bug fixes for attribute assignment
+- v0.3.1
   - Bug fixes and update to parameter configurations
 - v0.3
   - Allows for automatic deployment of the selected Feature Update to the low risk group
