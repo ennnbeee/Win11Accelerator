@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.2
+.VERSION 0.3.3
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -22,6 +22,7 @@ v0.2.4 - Updated attribute assignment logic and module check logic
 v0.3  - Updated to create a Feature Update profile and assign the low risk group
 v0.3.1 - Bug fixes for group creation and assignment, and improved error handling
 v0.3.2 - Bug fixes for attribute assignment and whatIf mode
+v0.3.4 - User interface improvements, and improved error handling
 
 .PRIVATEDATA
 #>
@@ -33,6 +34,36 @@ Allows for a phased and controlled distribution of Windows 11 Feature Updates fo
 .DESCRIPTION
 The Invoke-Windows11Accelerator script allows for the controlled roll out of Windows 11 Feature Updates based on device readiness risk assessments data.
 
+.PARAMETER featureUpdateBuild
+Select the Windows 11 Feature Update version you wish to deploy
+Choice of 22H2, 23H2, 24H2.
+Default is 24H2, so the script will target Windows 11 24H2 Feature Update.
+
+.PARAMETER extensionAttribute
+Configure the device extensionAttribute to be used for tagging Entra ID objects with their Feature Update Readiness Assessment risk score.
+Choice of 1 to 15
+
+.PARAMETER target
+Select the whether you want to target the deployment to groups of users or groups of devices.
+Choice of Users or Devices.
+Default is Devices, so the script will target devices.
+
+.PARAMETER createGroups
+Select whether the dynamic groups should be created as part of the script run.
+Default is false, so the script will not create the groups.
+
+.PARAMETER groupPrefix
+The prefix to be used for the dynamic group names and Feature Update profile name.
+Default is 'Win11Acc-'
+
+.PARAMETER whatIf
+Select whether you want to run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.
+Default is false, so the script will run in production mode.
+
+.PARAMETER firstRun
+Run the script without with warning prompts, used for continued running of the script.
+Default is true, so the script will run with warning prompts.
+
 .PARAMETER tenantId
 Provide the Id of the tenant to connect to.
 
@@ -42,33 +73,6 @@ Provide the Id of the Entra App registration to be used for authentication.
 .PARAMETER appSecret
 Provide the App secret to allow for authentication to graph
 
-.PARAMETER featureUpdateBuild
-Select the Windows 11 Feature Update version you wish to deploy
-Choice of 22H2, 23H2, 24H2.
-
-.PARAMETER extensionAttribute
-Configure the device extensionAttribute to be used for tagging Entra ID objects with their Feature Update Readiness Assessment risk score.
-Choice of 1 to 15
-
-.PARAMETER target
-Select the whether you want to target the deployment to groups of users or groups of devices.
-Choice of Users or Devices.
-
-.PARAMETER createGroups
-Select whether the dynamic groups should be created as part of the script run.
-
-.PARAMETER deployFeatureUpdate
-Select whether you want to deploy the Feature Update to devices with a low risk score.
-
-.PARAMETER days
-The number of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start.
-
-.PARAMETER whatIf
-Select whether you want to run the script in whatIf mode, with this switch it will not tag devices or users with their risk state.
-
-.PARAMETER firstRun
-Run the script without with warning prompts, used for continued running of the script.
-
 .EXAMPLE
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAttribute 15 -whatIf -createGroups
 
@@ -76,10 +80,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.3.1
+Version:        0.3.3
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  20/06/2025
+Creation Date:  25/06/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -101,16 +105,13 @@ param(
     [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
     [Boolean]$createGroups = $false,
 
-    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'Select whether you want to deploy the Feature Update to devices with a low risk score')]
-    [Boolean]$deployFeatureUpdate = $false,
+    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'The prefix to be used for the dynamic group names and Feature Update profile name')]
+    [String]$groupPrefix = 'Win11Acc-',
 
-    [Parameter(Position = 5, Mandatory = $false, HelpMessage = 'The amount of days between groups of the Feature Update deployment, and the number of days from today the Feature Update deployment will start')]
-    [int]$days = 7,
-
-    [Parameter(Position = 6, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
+    [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
     [Boolean]$firstRun = $true,
 
-    [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
+    [Parameter(Position = 8, Mandatory = $false, HelpMessage = 'Select the scope tag to be used for the report')]
     [String]$scopeTag = 'default',
 
     [Parameter(Mandatory = $false, HelpMessage = 'Provide the Id of the Entra ID tenant to connect to')]
@@ -738,23 +739,28 @@ Write-Host '
 |________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|
 ' -ForegroundColor blue
 
-Write-Host 'W11Accelerator - Allows for the tagging of Windows 10 devices with their Windows 11 Feature Update risk score, to allow for a controlled update to Windows 11.' -ForegroundColor Green
+Write-Host "Allows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.2 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-23' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.3 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-25' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
 #endregion intro
 
 #region variables
-$prefix = 'Win11Acc-'
 $ProgressPreference = 'SilentlyContinue';
 $rndWait = Get-Random -Minimum 1 -Maximum 3
 
-$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All', 'User.ReadWrite.All', 'DeviceManagementRBAC.Read.All')
+$requiredScopes = @('Device.ReadWrite.All', 'DeviceManagementManagedDevices.ReadWrite.All', 'DeviceManagementConfiguration.ReadWrite.All')
 if ($createGroups -eq $true) {
     $requiredScopes += @('Group.ReadWrite.All')
+}
+if ($scopeTag -ne 'default') {
+    $requiredScopes += @('DeviceManagementRBAC.Read.All')
+}
+if ($target -eq 'users') {
+    $requiredScopes += @('User.ReadWrite.All')
 }
 [String[]]$scopes = $requiredScopes -join ', '
 
@@ -772,11 +778,11 @@ $deviceRule = "(device.deviceManagementAppId -ne null) and (device.deviceOwnersh
 $targetCase = (Get-Culture).TextInfo.ToTitleCase($target)
 
 $riskGroupArray = @()
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
-$riskGroupArray += [PSCustomObject]@{ displayName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-LowRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-LowRisk`\`")"; description = 'Low Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-MediumRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-MediumRisk`\`")"; description = 'Medium Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-HighRisk'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-HighRisk`\`")"; description = 'High Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-Unknown'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-Unknown`\`")"; description = 'Unknown Risk Windows 11 Feature Update Readiness group' }
+$riskGroupArray += [PSCustomObject]@{ displayName = $groupPrefix + $targetCase + '-W11-' + $featureUpdateBuild + '-NotReady'; rule = "($target.$extensionAttributeValue -eq `\`"W11-$featureUpdateBuild-NotReady`\`")"; description = 'Not Ready Windows 11 Feature Update Readiness group' }
 
 $groupsArray = @()
 foreach ($riskGroup in $riskGroupArray) {
@@ -793,7 +799,6 @@ foreach ($groupArray in $groupsArray) {
     $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\', '') }
 }
 
-$featureUpdateProfileName = $prefix + $targetCase + '-W11-' + $featureUpdateBuild + '-FeatureUpdateProfile'
 #endregion variables
 
 #region module check
@@ -909,7 +914,7 @@ else {
     Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
 }
 Write-Host ''
-Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten if changed with each run.' -ForegroundColor Yellow
+Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten (if  changed) with each run.' -ForegroundColor Yellow
 Write-Host ''
 if ($createGroups -eq $true) {
     Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
@@ -950,7 +955,6 @@ if ($target -eq 'user') {
     foreach ($itemIntuneDevice in $intuneDevices) {
         $optIntuneDevices[$itemIntuneDevice.azureADDeviceId] = $itemIntuneDevice
     }
-
 }
 Write-Host 'Getting Windows device objects and associated IDs from Entra ID...' -ForegroundColor Cyan
 $entraDevices = Get-EntraIDObject -device -os Windows
@@ -978,7 +982,6 @@ $extAttribute = switch ($target) {
     'user' { 'onPremisesExtensionAttributes' }
     'device' { 'extensionAttributes' }
 }
-
 
 foreach ($entraObject in $entraObjects) {
 
@@ -1070,7 +1073,6 @@ Write-Host
 $featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
 Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
 While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
-    Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
     Start-Sleep -Seconds $rndWait
 }
 
@@ -1078,27 +1080,27 @@ Write-Host "Windows 11 $featureUpdateBuild feature update readiness completed pr
 Write-Host
 Write-Host "Getting Windows 11 $featureUpdateBuild feature update readiness Report data..." -ForegroundColor Magenta
 Write-Host
-$csvURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
+$featureUpdateReadinessURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
 
-$csvHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
+$urlHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
 Add-Type -AssemblyName System.IO.Compression
-$csvReportStream = Invoke-WebRequest -Uri $csvURL -Method Get -Headers $csvHeader -UseBasicParsing -ErrorAction Stop
-$csvReportZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($csvReportStream.Content))
-$csvReportDevices = [System.IO.StreamReader]::new($csvReportZip.GetEntry($csvReportZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
+$featureUpdateReadinessStream = Invoke-WebRequest -Uri $featureUpdateReadinessURL -Method Get -Headers $urlHeader -UseBasicParsing -ErrorAction Stop
+$featureUpdateReadinessZip = [System.IO.Compression.ZipArchive]::new([System.IO.MemoryStream]::new($featureUpdateReadinessStream.Content))
+$featureUpdateReadinessDevices = [System.IO.StreamReader]::new($featureUpdateReadinessZip.GetEntry($featureUpdateReadinessZip.Entries[0]).open()).ReadToEnd() | ConvertFrom-Csv
 
-if ($($csvReportDevices.Count) -eq 0) {
+if ($($featureUpdateReadinessDevices.Count) -eq 0) {
     Write-Warning 'No Feature Update Readiness report details were found, please review the pre-requisites ' -WarningAction Inquire
 
 }
 
-Write-Host "Found Feature Update Report Details for $($csvReportDevices.Count) devices." -ForegroundColor Green
+Write-Host "Found Feature Update Report Details for $($featureUpdateReadinessDevices.Count) devices." -ForegroundColor Green
 Write-Host
-Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($csvReportDevices.Count) devices..." -ForegroundColor Magenta
+Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($featureUpdateReadinessDevices.Count) devices..." -ForegroundColor Magenta
 
 $reportArray = @()
-foreach ($csvReportDevice in $csvReportDevices) {
+foreach ($featureUpdateReadinessDevice in $featureUpdateReadinessDevices) {
 
-    $riskState = switch ($csvReportDevice.ReadinessStatus) {
+    $riskState = switch ($featureUpdateReadinessDevice.ReadinessStatus) {
         '0' { "W11-$featureUpdateBuild-LowRisk" }
         '1' { "W11-$featureUpdateBuild-MediumRisk" }
         '2' { "W11-$featureUpdateBuild-HighRisk" }
@@ -1108,8 +1110,8 @@ foreach ($csvReportDevice in $csvReportDevices) {
 
     if ($target -eq 'user') {
 
-        if ($null -ne $csvReportDevice.AadDeviceId) {
-            $userObject = $optIntuneDevices[$csvReportDevice.AadDeviceId]
+        if ($null -ne $featureUpdateReadinessDevice.AadDeviceId) {
+            $userObject = $optIntuneDevices[$featureUpdateReadinessDevice.AadDeviceId]
 
             if ($null -ne $userObject.userId) {
                 $userEntraObject = $optEntraUsers[$userObject.userId]
@@ -1124,18 +1126,18 @@ foreach ($csvReportDevice in $csvReportDevices) {
         }
 
         $reportArray += [PSCustomObject]@{
-            'AadDeviceId'              = $csvReportDevice.AadDeviceId
-            'AppIssuesCount'           = $csvReportDevice.AppIssuesCount
-            'AppOtherIssuesCount'      = $csvReportDevice.AppOtherIssuesCount
-            'DeviceId'                 = $csvReportDevice.DeviceId
-            'DeviceManufacturer'       = $csvReportDevice.DeviceManufacturer
-            'DeviceModel'              = $csvReportDevice.DeviceModel
-            'DeviceName'               = $csvReportDevice.DeviceName
-            'DriverIssuesCount'        = $csvReportDevice.DriverIssuesCount
-            'OSVersion'                = $csvReportDevice.OSVersion
-            'Ownership'                = $csvReportDevice.Ownership
-            'ReadinessStatus'          = $csvReportDevice.ReadinessStatus
-            'SystemRequirements'       = $csvReportDevice.SystemRequirements
+            'AadDeviceId'              = $featureUpdateReadinessDevice.AadDeviceId
+            'AppIssuesCount'           = $featureUpdateReadinessDevice.AppIssuesCount
+            'AppOtherIssuesCount'      = $featureUpdateReadinessDevice.AppOtherIssuesCount
+            'DeviceId'                 = $featureUpdateReadinessDevice.DeviceId
+            'DeviceManufacturer'       = $featureUpdateReadinessDevice.DeviceManufacturer
+            'DeviceModel'              = $featureUpdateReadinessDevice.DeviceModel
+            'DeviceName'               = $featureUpdateReadinessDevice.DeviceName
+            'DriverIssuesCount'        = $featureUpdateReadinessDevice.DriverIssuesCount
+            'OSVersion'                = $featureUpdateReadinessDevice.OSVersion
+            'Ownership'                = $featureUpdateReadinessDevice.Ownership
+            'ReadinessStatus'          = $featureUpdateReadinessDevice.ReadinessStatus
+            'SystemRequirements'       = $featureUpdateReadinessDevice.SystemRequirements
             'RiskState'                = $riskState
             'userObjectID'             = $userObject.userId
             'userPrincipalName'        = $userObject.userPrincipalName
@@ -1145,26 +1147,26 @@ foreach ($csvReportDevice in $csvReportDevices) {
     }
     else {
 
-        if ($null -ne $csvReportDevice.AadDeviceId) {
-            $deviceObject = $optEntraDevices[$csvReportDevice.AadDeviceId]
+        if ($null -ne $featureUpdateReadinessDevice.AadDeviceId) {
+            $deviceObject = $optEntraDevices[$featureUpdateReadinessDevice.AadDeviceId]
         }
         else {
             $deviceObject = $null
         }
 
         $reportArray += [PSCustomObject]@{
-            'AadDeviceId'              = $csvReportDevice.AadDeviceId
-            'AppIssuesCount'           = $csvReportDevice.AppIssuesCount
-            'AppOtherIssuesCount'      = $csvReportDevice.AppOtherIssuesCount
-            'DeviceId'                 = $csvReportDevice.DeviceId
-            'DeviceManufacturer'       = $csvReportDevice.DeviceManufacturer
-            'DeviceModel'              = $csvReportDevice.DeviceModel
-            'DeviceName'               = $csvReportDevice.DeviceName
-            'DriverIssuesCount'        = $csvReportDevice.DriverIssuesCount
-            'OSVersion'                = $csvReportDevice.OSVersion
-            'Ownership'                = $csvReportDevice.Ownership
-            'ReadinessStatus'          = $csvReportDevice.ReadinessStatus
-            'SystemRequirements'       = $csvReportDevice.SystemRequirements
+            'AadDeviceId'              = $featureUpdateReadinessDevice.AadDeviceId
+            'AppIssuesCount'           = $featureUpdateReadinessDevice.AppIssuesCount
+            'AppOtherIssuesCount'      = $featureUpdateReadinessDevice.AppOtherIssuesCount
+            'DeviceId'                 = $featureUpdateReadinessDevice.DeviceId
+            'DeviceManufacturer'       = $featureUpdateReadinessDevice.DeviceManufacturer
+            'DeviceModel'              = $featureUpdateReadinessDevice.DeviceModel
+            'DeviceName'               = $featureUpdateReadinessDevice.DeviceName
+            'DriverIssuesCount'        = $featureUpdateReadinessDevice.DriverIssuesCount
+            'OSVersion'                = $featureUpdateReadinessDevice.OSVersion
+            'Ownership'                = $featureUpdateReadinessDevice.Ownership
+            'ReadinessStatus'          = $featureUpdateReadinessDevice.ReadinessStatus
+            'SystemRequirements'       = $featureUpdateReadinessDevice.SystemRequirements
             'RiskState'                = $riskState
             'deviceObjectID'           = $deviceObject.id
             "$extensionAttributeValue" = $deviceObject.extensionAttributes.$extensionAttributeValue
@@ -1173,7 +1175,7 @@ foreach ($csvReportDevice in $csvReportDevices) {
 }
 $reportArray = $reportArray | Sort-Object -Property ReadinessStatus
 
-Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($csvReportDevices.Count) devices." -ForegroundColor Green
+Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($featureUpdateReadinessDevices.Count) devices." -ForegroundColor Green
 Write-Host
 #endregion Feature Update Readiness
 
@@ -1319,47 +1321,3 @@ Write-Host ''
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
 Write-Host ''
 #endregion Attributes
-
-#region deployment
-if ($deployFeatureUpdate -eq $true) {
-
-    if ($firstRun -eq $true) {
-        Write-Host ''
-        Write-Warning -Message 'You are about to create a Feature Update profile and assign it to group. Please confirm you want to continue.' -WarningAction Inquire
-        Write-Host ''
-    }
-
-    $featureUpdateProfiles = Get-FeatureUpdateProfile
-    if ($featureUpdateProfileName -in $featureUpdateProfiles.displayName) {
-        Write-Host "Feature Update Profile $featureUpdateProfileName already exists, skipping profile creation." -ForegroundColor Cyan
-        Write-Host ''
-    }
-    else {
-        Write-Host "Creating Feature Update Profile $featureUpdateProfileName..." -ForegroundColor Cyan
-        Write-Host ''
-        if ($whatIf -eq $true) {
-            Write-Host 'WhatIf mode enabled, no changes will be made.' -ForegroundColor Magenta
-            continue
-        }
-        else {
-            $featureUpdateProfile = New-FeatureUpdateProfile -Name $featureUpdateProfileName -featureUpdateBuild $featureUpdateBuild -groupInterval $days
-            $lowRiskGroupName = $groupsArray[0].displayName
-            $lowRiskGroup = Get-MDMGroup -groupName $lowRiskGroupName
-            if ($createGroups -eq $true) {
-                Write-Host "Assigning Feature Update Profile $featureUpdateProfileName to group $lowRiskGroupName..." -ForegroundColor Cyan
-                New-FeatureUpdateAssignment -featureUpdateProfileId $featureUpdateProfile.id -groupId $lowRiskGroup.id
-                Write-Host ''
-                Write-Host "Feature Update Profile $featureUpdateProfileName created and assigned to group $lowRiskGroupName." -ForegroundColor Green
-                Write-Host ''
-            }
-            else {
-                Write-Host ''
-                Write-Host "Feature Update Profile $featureUpdateProfileName created, but not assigned to the low risk group." -ForegroundColor Green
-                Write-Host ''
-                Write-Host 'Please manually create the dynamic groups and assign this Feature Update profile to the Low Risk Group.' -ForegroundColor Magenta
-                Write-Host ''
-            }
-        }
-    }
-}
-#endregion deployment

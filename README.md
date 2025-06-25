@@ -19,7 +19,9 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.3.2**
+- **v0.3.3**
+  - Improved interface and error handling
+- v0.3.2
   - Bug fixes for attribute assignment
 - v0.3.1
   - Bug fixes and update to parameter configurations
@@ -64,7 +66,11 @@ Run the script to assign **Windows 11 24H2** Feature Update risk states to **ext
 .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10
 ```
 
-### ⚙ Subsequent Usage
+> [!TIP]
+> For large environments the initial run of the script may be interrupted by the authentication token expiring, please run the script again in the event this happens.
+
+
+### ⚙ Continued Usage
 
 Following the initial run the script, you can suppress the warning prompts by running the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 10** without warning prompts:
 
@@ -74,21 +80,13 @@ Following the initial run the script, you can suppress the warning prompts by ru
 
 ### 🛍 Group Creation
 
-If you want the script to create dynamic groups based on the extension attribute risk state, include the switch parameter `createGroups`:
+If you want the script to create dynamic groups based on the extension attribute risk state, include the boolean parameter `createGroups`:
 
 ```PowerShell
-.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -createGroups $true
+.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -createGroups $true -prefix 'Win11Acc-'
 ```
 
 This will allow for groups to be created with a prefix of **Win11Acc-**, only if a group with the same name does not already exist.
-
-### 🖥 Feature Update Creation
-
-If you want the script to create a Feature Update deployment and deploy it to the **low risk group**, use the `deployFeatureUpdate` parameter; the Feature Update will start **x** `days` from when the script has run, with a group interval of **x** `days`.
-
-```PowerShell
-.\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -deployFeatureUpdate $true -days 7
-```
 
 ## 🎬 Demos
 
