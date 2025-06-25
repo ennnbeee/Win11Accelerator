@@ -69,7 +69,6 @@ Run the script to assign **Windows 11 24H2** Feature Update risk states to **ext
 > [!TIP]
 > For large environments the initial run of the script may be interrupted by the authentication token expiring, please run the script again in the event this happens.
 
-
 ### ⚙ Continued Usage
 
 Following the initial run the script, you can suppress the warning prompts by running the script to assign **Windows 11 24H2** Feature Update risk states to **extensionAttribute 10** without warning prompts:
