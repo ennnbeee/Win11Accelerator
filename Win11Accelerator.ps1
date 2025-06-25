@@ -105,7 +105,7 @@ param(
     [Parameter(Position = 3, Mandatory = $false, HelpMessage = 'Select whether the dynamic groups should be created as part of the script run')]
     [Boolean]$createGroups = $false,
 
-    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'The prefix to be used for the dynamic group names and Feature Update profile name')]
+    [Parameter(Position = 4, Mandatory = $false, HelpMessage = 'The prefix to be used for the dynamic group names')]
     [String]$groupPrefix = 'Win11Acc-',
 
     [Parameter(Position = 7, Mandatory = $false, HelpMessage = 'Run the script with or without with warning prompts, used for continued running of the script.')]
