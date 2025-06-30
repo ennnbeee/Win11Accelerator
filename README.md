@@ -95,7 +95,7 @@ This will allow for groups to be created with a prefix of **Win11Acc-**, only if
 
 If you encounter any issues or have questions:
 
-1. Check the [Issues](https://github.com/ennnbeee/EPManager/issues) page
+1. Check the [Issues](https://github.com/ennnbeee/Win11Accelerator/issues) page
 2. Open a new issue if needed
 
 Thank you for your support.
