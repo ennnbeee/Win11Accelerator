@@ -19,7 +19,9 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
 
 ## 🔄 Updates
 
-- **v0.3.3**
+- **v0.3.4**
+  - Updated filtering when getting Entra ID objects
+- v0.3.3
   - Improved interface and error handling
 - v0.3.2
   - Bug fixes for attribute assignment

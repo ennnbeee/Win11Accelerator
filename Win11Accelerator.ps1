@@ -80,10 +80,10 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
 .NOTES
-Version:        0.3.3
+Version:        0.3.4
 Author:         Nick Benton
 WWW:            oddsandendpoints.co.uk
-Creation Date:  25/06/2025
+Creation Date:  22/07/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -377,16 +377,16 @@ Function Get-EntraIDObject() {
     elseif ($device) {
         switch ($os) {
             'iOS' {
-                $Resource = "devices?`$filter=operatingSystem eq 'iOS' and isManaged eq true"
+                $Resource = "devices?`$filter=operatingSystem eq 'iOS'"
             }
             'Android' {
-                $Resource = "devices?`$filter=operatingSystem eq 'Android'and isManaged eq true"
+                $Resource = "devices?`$filter=operatingSystem eq 'Android'"
             }
             'macOS' {
-                $Resource = "devices?`$filter=operatingSystem eq 'macOS'and isManaged eq true"
+                $Resource = "devices?`$filter=operatingSystem eq 'macOS'"
             }
             'Windows' {
-                $Resource = "devices?`$filter=operatingSystem eq 'Windows'and isManaged eq true"
+                $Resource = "devices?`$filter=operatingSystem eq 'Windows'"
             }
         }
     }
@@ -741,8 +741,8 @@ Write-Host '
 
 Write-Host "Allows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.3 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-06-25' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.4 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-07-22' -ForegroundColor Magenta
 Write-Host ''
 Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
 Write-Host ''
@@ -914,7 +914,7 @@ else {
     Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
 }
 Write-Host ''
-Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten (if  changed) with each run.' -ForegroundColor Yellow
+Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten (if they have changed) with each run.' -ForegroundColor Yellow
 Write-Host ''
 if ($createGroups -eq $true) {
     Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
