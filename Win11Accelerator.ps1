@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.3
+.VERSION 0.3.4
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -132,7 +132,7 @@ param(
 )
 
 #region Functions
-Function Connect-ToGraph {
+function Connect-ToGraph {
     <#
 .SYNOPSIS
 Authenticates to the Graph API via the Microsoft.Graph.Authentication module.
@@ -165,7 +165,7 @@ Connect-ToGraph -tenantId $tenantId -appId $app -appSecret $secret
         [Parameter(Mandatory = $false)] [string[]]$scopes
     )
 
-    Process {
+    process {
         #Import-Module Microsoft.Graph.Authentication
         $version = (Get-Module microsoft.graph.authentication | Select-Object -ExpandProperty Version).major
 
@@ -205,7 +205,7 @@ Connect-ToGraph -tenantId $tenantId -appId $app -appSecret $secret
         }
     }
 }
-Function Test-JSONData() {
+function Test-JSONData() {
 
     param (
         $JSON
@@ -226,7 +226,7 @@ Function Test-JSONData() {
     }
 
 }
-Function New-ReportFeatureUpdateReadiness() {
+function New-ReportFeatureUpdateReadiness() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -283,7 +283,7 @@ Function New-ReportFeatureUpdateReadiness() {
         Write-Output 'Feature Update report was not created'
     }
 }
-Function Get-ReportFeatureUpdateReadiness() {
+function Get-ReportFeatureUpdateReadiness() {
 
     [cmdletbinding()]
 
@@ -316,7 +316,7 @@ Function Get-ReportFeatureUpdateReadiness() {
         break
     }
 }
-Function Add-ObjectAttribute() {
+function Add-ObjectAttribute() {
 
     [cmdletbinding()]
 
@@ -352,7 +352,7 @@ Function Add-ObjectAttribute() {
         break
     }
 }
-Function Get-EntraIDObject() {
+function Get-EntraIDObject() {
 
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     param
@@ -416,7 +416,7 @@ Function Get-EntraIDObject() {
         break
     }
 }
-Function Get-ManagedDevice() {
+function Get-ManagedDevice() {
 
     [cmdletbinding()]
     param
@@ -452,7 +452,7 @@ Function Get-ManagedDevice() {
         break
     }
 }
-Function Get-ScopeTag() {
+function Get-ScopeTag() {
 
     [cmdletbinding()]
     param
@@ -474,7 +474,7 @@ Function Get-ScopeTag() {
         break
     }
 }
-Function Get-MDMGroup() {
+function Get-MDMGroup() {
 
     [cmdletbinding()]
 
@@ -520,7 +520,7 @@ Function Get-MDMGroup() {
         break
     }
 }
-Function New-MDMGroup() {
+function New-MDMGroup() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -551,7 +551,7 @@ Function New-MDMGroup() {
         Write-Output 'Entra ID security group was not created'
     }
 }
-Function New-FeatureUpdateProfile() {
+function New-FeatureUpdateProfile() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -641,7 +641,7 @@ Function New-FeatureUpdateProfile() {
         Write-Output 'Feature Update profile was not created'
     }
 }
-Function Get-FeatureUpdateProfile() {
+function Get-FeatureUpdateProfile() {
 
     [CmdletBinding()]
 
@@ -669,7 +669,7 @@ Function Get-FeatureUpdateProfile() {
     }
 
 }
-Function New-FeatureUpdateAssignment() {
+function New-FeatureUpdateAssignment() {
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -734,10 +734,11 @@ $deployFeatureUpdate = $false
 #region intro
 Write-Host '
  ________ __         ____   ____   _______                   __                    __
-|  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.
-|  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|
-|________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|
-' -ForegroundColor blue
+|  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.' -ForegroundColor Cyan -NoNewline
+Write-Host '
+|  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|' -ForegroundColor DarkCyan -NoNewline
+Write-Host '
+|________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|' -ForegroundColor Blue
 
 Write-Host "Allows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
@@ -766,7 +767,7 @@ if ($target -eq 'users') {
 
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
 
-$featureUpdate = Switch ($featureUpdateBuild) {
+$featureUpdate = switch ($featureUpdateBuild) {
     '22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
     '23H2' { 'NI23H2' } # Windows 11 23H2 (Nickel)
     '24H2' { 'GE24H2' } # Windows 11 24H2 (Germanium)
@@ -812,7 +813,7 @@ $modules = @('Microsoft.Graph.Authentication')
 foreach ($module in $modules) {
     Write-Host "Checking for $module PowerShell module..." -ForegroundColor Cyan
     Write-Host ''
-    If (!(Get-Module -Name $module -ListAvailable)) {
+    if (!(Get-Module -Name $module -ListAvailable)) {
         if ($elevatedStatus -eq $true) {
             Write-Host "PowerShell Module $module not found, installing for all users." -ForegroundColor Yellow
             Write-Host ''
@@ -854,7 +855,7 @@ try {
 }
 catch {
     Write-Error $_.Exception.Message
-    Exit
+    exit
 }
 #endregion app auth
 
@@ -883,7 +884,7 @@ if ($scopeTag -ne 'default') {
     }
     if ($null -eq $scopeTagId) {
         Write-Host "Unable to find Scope Tag $scopeTag" -ForegroundColor Red
-        Break
+        break
     }
 }
 else {
@@ -934,7 +935,7 @@ if ($target -eq 'user') {
     Write-Host "Found $($entraUsers.Count) user objects and associated IDs from Entra ID." -ForegroundColor Green
     if ($entraUsers.Count -eq 0) {
         Write-Host 'Found no Users in Entra.' -ForegroundColor Red
-        Break
+        break
     }
     #optimising the entra user data
     $optEntraUsers = @{}
@@ -948,7 +949,7 @@ if ($target -eq 'user') {
     Write-Host
     if ($intuneDevices.Count -eq 0) {
         Write-Host 'Found no Windows devices in Intune.' -ForegroundColor Red
-        Break
+        break
     }
     #optimising the intune device data
     $optIntuneDevices = @{}
@@ -961,7 +962,7 @@ $entraDevices = Get-EntraIDObject -device -os Windows
 Write-Host "Found $($entraDevices.Count) Windows devices and associated IDs from Entra ID." -ForegroundColor Green
 if ($entraDevices.Count -eq 0) {
     Write-Host 'Found no Windows devices in Entra.' -ForegroundColor Red
-    Break
+    break
 }
 #optimising the entra device data
 $optEntraDevices = @{}
@@ -1072,7 +1073,7 @@ Write-Host
 
 $featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
 Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
-While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
+while ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
     Start-Sleep -Seconds $rndWait
 }
 
@@ -1249,7 +1250,7 @@ if ($target -eq 'user') {
             }
         }
 
-        If ($whatIf -eq $false) {
+        if ($whatIf -eq $false) {
             Start-Sleep -Seconds $rndWait
             if (!([string]::IsNullOrEmpty($userObject.userObjectID))) {
                 Add-ObjectAttribute -object User -Id $($userObject.userObjectID) -JSON $JSON
@@ -1268,7 +1269,7 @@ if ($target -eq 'user') {
 
 }
 else {
-    Foreach ($device in $reportArray) {
+    foreach ($device in $reportArray) {
 
         $riskColour = switch ($($device.ReadinessStatus)) {
             '0' { 'Green' }
@@ -1295,7 +1296,7 @@ else {
 "@
 
             # Sleep to stop throttling issues
-            If ($whatIf -eq $false) {
+            if ($whatIf -eq $false) {
                 Start-Sleep -Seconds $rndWait
                 if (!([string]::IsNullOrEmpty($device.deviceObjectID))) {
                     Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
