@@ -27,14 +27,16 @@ Win11Accelerator is currently in Public Preview, meaning that although the it is
   - Bug fixes for attribute assignment
 - v0.3.1
   - Bug fixes and update to parameter configurations
-- v0.3
+- v0.3.0
   - Allows for automatic deployment of the selected Feature Update to the low risk group
 - v0.2.4
   - Updated to support creation of Dynamic Groups
   - Included a whatIf mode
   - Improved performance of functions
   - Improved logic of attribute assignment
-- v0.1
+- v0.2.0
+  - Allows creation of Dynamic Groups
+- v0.1.0
   - Initial release
 
 ## 🔑 Permissions

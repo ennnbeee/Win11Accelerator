@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.3
+.VERSION 0.3.4
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -13,16 +13,17 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
-v0.1 - Initial release
-v0.2 - Allows creation of Dynamic Groups
-v0.2.1 - Function improvements and bug fixes
-v0.2.2 - Changed logic if groups are to be created
-v0.2.3 - Improved function performance, and updated device dynamic groups
-v0.2.4 - Updated attribute assignment logic and module check logic
-v0.3  - Updated to create a Feature Update profile and assign the low risk group
-v0.3.1 - Bug fixes for group creation and assignment, and improved error handling
+v0.3.4 - Updated filtering when getting Entra ID objects
+v0.3.3 - User interface improvements, and improved error handling
 v0.3.2 - Bug fixes for attribute assignment and whatIf mode
-v0.3.4 - User interface improvements, and improved error handling
+v0.3.1 - Bug fixes for group creation and assignment, and improved error handling
+v0.3.0 - Updated to create a Feature Update profile and assign the low risk group
+v0.2.4 - Updated attribute assignment logic and module check logic
+v0.2.3 - Improved function performance, and updated device dynamic groups
+v0.2.2 - Changed logic if groups are to be created
+v0.2.1 - Function improvements and bug fixes
+v0.2 - Allows creation of Dynamic Groups
+v0.1 - Initial release
 
 .PRIVATEDATA
 #>
@@ -79,11 +80,6 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 23H2 -target device -extensionAtt
 .EXAMPLE
 PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAttribute 10 -firstRun
 
-.NOTES
-Version:        0.3.4
-Author:         Nick Benton
-WWW:            oddsandendpoints.co.uk
-Creation Date:  22/07/2025
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Default')]
@@ -132,7 +128,7 @@ param(
 )
 
 #region Functions
-Function Connect-ToGraph {
+function Connect-ToGraph {
     <#
 .SYNOPSIS
 Authenticates to the Graph API via the Microsoft.Graph.Authentication module.
@@ -165,7 +161,7 @@ Connect-ToGraph -tenantId $tenantId -appId $app -appSecret $secret
         [Parameter(Mandatory = $false)] [string[]]$scopes
     )
 
-    Process {
+    process {
         #Import-Module Microsoft.Graph.Authentication
         $version = (Get-Module microsoft.graph.authentication | Select-Object -ExpandProperty Version).major
 
@@ -205,7 +201,21 @@ Connect-ToGraph -tenantId $tenantId -appId $app -appSecret $secret
         }
     }
 }
-Function Test-JSONData() {
+function Test-JSONData() {
+
+    <#
+    .SYNOPSIS
+    Validates JSON data format.
+
+    .DESCRIPTION
+    The Test-JSONData function checks if the provided JSON string is in a valid format.
+
+    .PARAMETER JSON
+    Specifies the JSON string to validate.
+
+    .EXAMPLE
+    Test-JSONData -JSON '{"key": "value"}'
+    #>
 
     param (
         $JSON
@@ -226,7 +236,24 @@ Function Test-JSONData() {
     }
 
 }
-Function New-ReportFeatureUpdateReadiness() {
+function New-ReportFeatureUpdateReadiness() {
+
+    <#
+    .SYNOPSIS
+    Starts the process of creating a new Feature Update Readiness report.
+
+    .DESCRIPTION
+    This function initiates the creation of a new report to assess the readiness of devices for a specific feature update.
+
+    .PARAMETER featureUpdate
+    Specifies the feature update version to assess.
+
+    .PARAMETER scopeTagId
+    Specifies the scope tag ID to filter devices for the report.
+
+    .EXAMPLE
+    New-ReportFeatureUpdateReadiness -featureUpdate '21H2' -scopeTagId 'All'
+    #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -283,7 +310,19 @@ Function New-ReportFeatureUpdateReadiness() {
         Write-Output 'Feature Update report was not created'
     }
 }
-Function Get-ReportFeatureUpdateReadiness() {
+function Get-ReportFeatureUpdateReadiness() {
+
+    <#
+    .SYNOPSIS
+    Retrieves the status of a Feature Update Readiness report.
+
+    .DESCRIPTION
+    This function fetches the current status and results of a specific Feature Update Readiness report.
+
+    .PARAMETER Id
+    Specifies the ID of the report to retrieve.
+
+    #>
 
     [cmdletbinding()]
 
@@ -316,7 +355,25 @@ Function Get-ReportFeatureUpdateReadiness() {
         break
     }
 }
-Function Add-ObjectAttribute() {
+function Add-ObjectAttribute() {
+
+    <#
+    .SYNOPSIS
+    Adds a custom attribute to a user or device object in Entra ID.
+
+    .DESCRIPTION
+    This function allows you to add a custom attribute to a specified user or device object in Entra ID.
+
+    .PARAMETER object
+    Specifies the type of object to modify (User or Device).
+
+    .PARAMETER JSON
+    Specifies the JSON payload containing the attribute to add.
+
+    .PARAMETER Id
+    Specifies the ID of the object to modify.
+
+    #>
 
     [cmdletbinding()]
 
@@ -352,7 +409,25 @@ Function Add-ObjectAttribute() {
         break
     }
 }
-Function Get-EntraIDObject() {
+function Get-EntraIDObject() {
+
+    <#
+    .SYNOPSIS
+    Retrieves an Entra ID object (User or Device) based on specified criteria.
+
+    .DESCRIPTION
+    This function retrieves an Entra ID. object (User or Device) based on specified criteria.
+
+    .PARAMETER user
+    Specifies retrieving a User object from Entra ID.
+
+    .PARAMETER device
+    Specifies retrieving a Device object from Entra ID.
+
+    .PARAMETER os
+    Specifies the operating system of the Device object to retrieve.
+
+    #>
 
     [CmdletBinding(DefaultParameterSetName = 'Default')]
     param
@@ -416,7 +491,16 @@ Function Get-EntraIDObject() {
         break
     }
 }
-Function Get-ManagedDevice() {
+function Get-ManagedDevice() {
+
+    <#
+    .SYNOPSIS
+    Retrieves a managed device object from Intune.
+
+    .DESCRIPTION
+    This function retrieves a managed device object from Intune based on specified criteria.
+
+    #>
 
     [cmdletbinding()]
     param
@@ -452,7 +536,16 @@ Function Get-ManagedDevice() {
         break
     }
 }
-Function Get-ScopeTag() {
+function Get-ScopeTag() {
+
+    <#
+    .SYNOPSIS
+    Retrieves a role scope tag object from Intune.
+
+    .DESCRIPTION
+    This function retrieves a role scope tag object from Intune.
+
+    #>
 
     [cmdletbinding()]
     param
@@ -474,7 +567,16 @@ Function Get-ScopeTag() {
         break
     }
 }
-Function Get-MDMGroup() {
+function Get-MDMGroup() {
+
+    <#
+    .SYNOPSIS
+    Allows for searching for groups or getting group information from Entra ID.
+
+    .DESCRIPTION
+    This function allows for searching for groups or getting group information from Entra ID.
+
+    #>
 
     [cmdletbinding()]
 
@@ -520,7 +622,19 @@ Function Get-MDMGroup() {
         break
     }
 }
-Function New-MDMGroup() {
+function New-MDMGroup() {
+
+    <#
+    .SYNOPSIS
+    Creates a new Entra ID security group.
+
+    .DESCRIPTION
+    This function creates a new security group in Entra ID.
+
+    .PARAMETER JSON
+    Specifies the JSON payload for the new group.
+
+    #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -551,7 +665,34 @@ Function New-MDMGroup() {
         Write-Output 'Entra ID security group was not created'
     }
 }
-Function New-FeatureUpdateProfile() {
+function New-FeatureUpdateProfile() {
+
+    <#
+    .SYNOPSIS
+    Creates a new Windows 11 Feature Update profile in Intune.
+
+    .DESCRIPTION
+    This function creates a new Windows 11 Feature Update profile in Intune.
+
+    .PARAMETER name
+    Specifies the name of the new Feature Update profile.
+
+    .PARAMETER featureUpdateBuild
+    Specifies the feature update build version for the new Feature Update profile option from 22H2 to 24H2.
+
+    .PARAMETER startDate
+    Specifies the start date for the new Feature Update profile.
+
+    .PARAMETER endDate
+    Specifies the end date for the new Feature Update profile.
+
+    .PARAMETER groupInterval
+    Specifies the interval in days for the group assignment.
+
+    .PARAMETER scopeTagId
+    Specifies the scope tag ID for the new Feature Update profile.
+
+    #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -641,7 +782,20 @@ Function New-FeatureUpdateProfile() {
         Write-Output 'Feature Update profile was not created'
     }
 }
-Function Get-FeatureUpdateProfile() {
+function Get-FeatureUpdateProfile() {
+
+    <#
+    .SYNOPSIS
+    Retrieves information about a specific Windows 11 Feature Update profile.
+
+    .DESCRIPTION
+    This function retrieves information about a specific Windows 11 Feature Update profile
+    from Intune.
+
+    .PARAMETER Id
+    Specifies the ID of the Feature Update profile to retrieve.
+
+    #>
 
     [CmdletBinding()]
 
@@ -669,7 +823,17 @@ Function Get-FeatureUpdateProfile() {
     }
 
 }
-Function New-FeatureUpdateAssignment() {
+function New-FeatureUpdateAssignment() {
+
+    <#
+    .SYNOPSIS
+    Creates a new assignment for a Windows 11 Feature Update profile.
+
+    .DESCRIPTION
+    This function creates a new assignment for a Windows 11 Feature Update profile
+    in Intune.
+
+    #>
 
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'low')]
 
@@ -734,18 +898,18 @@ $deployFeatureUpdate = $false
 #region intro
 Write-Host '
  ________ __         ____   ____   _______                   __                    __
-|  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.
-|  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|
-|________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|
-' -ForegroundColor blue
+|  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.' -ForegroundColor Cyan -NoNewline
+Write-Host '
+|  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|' -ForegroundColor DarkCyan -NoNewline
+Write-Host '
+|________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|' -ForegroundColor blue
 
-Write-Host "Allows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
+Write-Host "`nAllows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
 Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.4 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-07-22' -ForegroundColor Magenta
-Write-Host ''
-Write-Host 'If you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues' -ForegroundColor Cyan
-Write-Host ''
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-09-11' -ForegroundColor Magenta
+Write-Host "`nIf you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues" -ForegroundColor Cyan
+
 #endregion intro
 
 #region variables
@@ -766,7 +930,7 @@ if ($target -eq 'users') {
 
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
 
-$featureUpdate = Switch ($featureUpdateBuild) {
+$featureUpdate = switch ($featureUpdateBuild) {
     '22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
     '23H2' { 'NI23H2' } # Windows 11 23H2 (Nickel)
     '24H2' { 'GE24H2' } # Windows 11 24H2 (Germanium)
@@ -811,23 +975,16 @@ if (!$IsMacOS -and !$IsLinux) {
 $modules = @('Microsoft.Graph.Authentication')
 foreach ($module in $modules) {
     Write-Host "Checking for $module PowerShell module..." -ForegroundColor Cyan
-    Write-Host ''
-    If (!(Get-Module -Name $module -ListAvailable)) {
+    if (!(Get-Module -Name $module -ListAvailable)) {
         if ($elevatedStatus -eq $true) {
             Write-Host "PowerShell Module $module not found, installing for all users." -ForegroundColor Yellow
-            Write-Host ''
             Install-Module -Name $module -AllowClobber
         }
-
         else {
-            Write-Host "PowerShell Module $module not found, installing for current user." -ForegroundColor Yellow
-            Write-Host ''
             Install-Module -Name $module -Scope CurrentUser -AllowClobber
         }
-
     }
     Write-Host "PowerShell Module $module found." -ForegroundColor Green
-    Write-Host ''
     Import-Module -Name $module -Force
 }
 #endregion module check
@@ -849,12 +1006,11 @@ try {
         }
     }
     $context = Get-MgContext
-    Write-Host ''
-    Write-Host "Successfully connected to Microsoft Graph tenant with ID $($context.TenantId)." -ForegroundColor Green
+    Write-Host "`nSuccessfully connected to Microsoft Graph tenant with ID $($context.TenantId)." -ForegroundColor Green
 }
 catch {
     Write-Error $_.Exception.Message
-    Exit
+    exit
 }
 #endregion app auth
 
@@ -865,12 +1021,10 @@ $missingScopes = $requiredScopes | Where-Object { $_ -notin $currentScopes }
 if ($missingScopes.Count -gt 0) {
     Write-Host 'WARNING: The following scope permissions are missing:' -ForegroundColor Red
     $missingScopes | ForEach-Object { Write-Host "  - $_" -ForegroundColor Yellow }
-    Write-Host ''
-    Write-Host 'Please ensure these permissions are granted to the app registration for full functionality.' -ForegroundColor Yellow
+    Write-Host "`nPlease ensure these permissions are granted to the app registration for full functionality." -ForegroundColor Yellow
     exit
 }
-Write-Host ''
-Write-Host 'All required scope permissions are present.' -ForegroundColor Green
+Write-Host "`nAll required scope permissions are present." -ForegroundColor Green
 #endregion scopes
 
 #region scope tags
@@ -883,7 +1037,7 @@ if ($scopeTag -ne 'default') {
     }
     if ($null -eq $scopeTagId) {
         Write-Host "Unable to find Scope Tag $scopeTag" -ForegroundColor Red
-        Break
+        break
     }
 }
 else {
@@ -901,9 +1055,8 @@ if ($whatIf -eq $true) {
 else {
     Write-Host "Starting the 'Win11Accelerator' Script in production mode" -ForegroundColor Red
 }
-Write-Host
+
 Write-Host 'The script will carry out the following:' -ForegroundColor Green
-Write-Host ''
 Write-Host '    - Capture all Windows Device or User objects from Entra ID.' -ForegroundColor White
 Write-Host "    - Start a Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
 Write-Host "    - Capture and process the outcome of the Windows 11 $featureUpdateBuild Feature Update Readiness report." -ForegroundColor White
@@ -913,42 +1066,36 @@ if ($target -eq 'user') {
 else {
     Write-Host "    - Assign a risk based flag to the Device object using Extension Attribute $extensionAttributeValue" -ForegroundColor White
 }
-Write-Host ''
-Write-Host 'The script can be run multiple times, as the Extension Attributes are overwritten (if they have changed) with each run.' -ForegroundColor Yellow
-Write-Host ''
+Write-Host "`nThe script can be run multiple times, as the Extension Attributes are overwritten (if they have changed) with each run." -ForegroundColor Yellow
+
 if ($createGroups -eq $true) {
     Write-Host 'The script will create the Dynamic Groups in Entra ID for each of the risk levels, if they do not already exist' -ForegroundColor Green
-    Write-Host ''
 }
 if ($firstRun -eq $true) {
-    Write-Host ''
     Write-Warning 'Please review the above and confirm you are happy to continue.' -WarningAction Inquire
 }
 #endregion Start
 
 #region pre-flight
-Write-Host
 if ($target -eq 'user') {
     Write-Host 'Getting user objects and associated IDs from Entra ID...' -ForegroundColor Cyan
     $entraUsers = Get-EntraIDObject -user
     Write-Host "Found $($entraUsers.Count) user objects and associated IDs from Entra ID." -ForegroundColor Green
     if ($entraUsers.Count -eq 0) {
         Write-Host 'Found no Users in Entra.' -ForegroundColor Red
-        Break
+        break
     }
     #optimising the entra user data
     $optEntraUsers = @{}
     foreach ($itemEntraUser in $entraUsers) {
         $optEntraUsers[$itemEntraUser.id] = $itemEntraUser
     }
-    Write-Host
     Write-Host 'Getting Windows device objects and associated IDs from Microsoft Intune...' -ForegroundColor Cyan
     $intuneDevices = Get-ManagedDevice
     Write-Host "Found $($intuneDevices.Count) Windows device objects and associated IDs from Microsoft Intune." -ForegroundColor Green
-    Write-Host
     if ($intuneDevices.Count -eq 0) {
         Write-Host 'Found no Windows devices in Intune.' -ForegroundColor Red
-        Break
+        break
     }
     #optimising the intune device data
     $optIntuneDevices = @{}
@@ -961,14 +1108,13 @@ $entraDevices = Get-EntraIDObject -device -os Windows
 Write-Host "Found $($entraDevices.Count) Windows devices and associated IDs from Entra ID." -ForegroundColor Green
 if ($entraDevices.Count -eq 0) {
     Write-Host 'Found no Windows devices in Entra.' -ForegroundColor Red
-    Break
+    break
 }
 #optimising the entra device data
 $optEntraDevices = @{}
 foreach ($itemEntraDevice in $entraDevices) {
     $optEntraDevices[$itemEntraDevice.deviceid] = $itemEntraDevice
 }
-Write-Host
 Write-Host "Checking for existing data in attribute $extensionAttributeValue in Entra ID..." -ForegroundColor Cyan
 $attributeErrors = 0
 $safeAttributes = @("W11-$featureUpdateBuild-LowRisk", "W11-$featureUpdateBuild-MediumRisk", "W11-$featureUpdateBuild-HighRisk", "W11-$featureUpdateBuild-NotReady", "W11-$featureUpdateBuild-Unknown")
@@ -994,16 +1140,13 @@ foreach ($entraObject in $entraObjects) {
     }
 }
 if ($attributeErrors -gt 0) {
-    Write-Host
     Write-Host "Please review the objects reporting as having existing data in the selected attribute $extensionAttributeValue." -ForegroundColor Red
     Write-Warning "If you are happy to overwrite $extensionAttributeValue please continue, otherwise stop the script." -WarningAction Inquire
 }
 Write-Host "No issues found using the selected attribute $extensionAttributeValue for risk assignment." -ForegroundColor Green
-Write-Host
 #endregion pre-flight
 
 #region Group Creation
-Write-Host ''
 if ($firstRun -eq $true) {
     if ($createGroups -eq $false) {
         Write-Host "The following $($groupsArray.Count) group(s) should be created manually:" -ForegroundColor Yellow
@@ -1011,15 +1154,12 @@ if ($firstRun -eq $true) {
     else {
         Write-Host "The following $($groupsArray.Count) group(s) will be created:" -ForegroundColor Yellow
     }
-    Write-Host ''
     $groupsDisplayArray | Select-Object -Property displayName, rule | Format-Table -AutoSize -Wrap
 }
 
 if ($createGroups -eq $true) {
     if ($firstRun -eq $true) {
-        Write-Host ''
         Write-Warning -Message "You are about to create $($groupsArray.Count) new group(s) in Microsoft Entra ID. Please confirm you want to continue." -WarningAction Inquire
-        Write-Host ''
     }
 
     foreach ($group in $groupsArray) {
@@ -1030,7 +1170,6 @@ if ($createGroups -eq $true) {
         }
 
         if (!(Get-MDMGroup -groupName $groupName)) {
-            Write-Host ''
             Write-Host "Creating Group $groupName with rule $($group.rule)" -ForegroundColor Cyan
             $groupJSON = @"
     {
@@ -1061,25 +1200,20 @@ if ($createGroups -eq $true) {
         }
     }
     Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
-    Write-Host ''
 }
 
 #endregion Group Creation
 
 #region Feature Update Readiness
 Write-Host "Starting the Feature Update Readiness Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
-Write-Host
-
 $featureUpdateReport = New-ReportFeatureUpdateReadiness -featureUpdate $featureUpdate -scopeTagId $scopeTagId
 Write-Host 'Waiting for the Feature Update report to finish processing...' -ForegroundColor Cyan
-While ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
+while ((Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).status -ne 'completed') {
     Start-Sleep -Seconds $rndWait
 }
 
 Write-Host "Windows 11 $featureUpdateBuild feature update readiness completed processing." -ForegroundColor Green
-Write-Host
 Write-Host "Getting Windows 11 $featureUpdateBuild feature update readiness Report data..." -ForegroundColor Magenta
-Write-Host
 $featureUpdateReadinessURL = (Get-ReportFeatureUpdateReadiness -Id $featureUpdateReport.id).url
 
 $urlHeader = @{Accept = '*/*'; 'accept-encoding' = 'gzip, deflate, br, zstd' }
@@ -1094,7 +1228,6 @@ if ($($featureUpdateReadinessDevices.Count) -eq 0) {
 }
 
 Write-Host "Found Feature Update Report Details for $($featureUpdateReadinessDevices.Count) devices." -ForegroundColor Green
-Write-Host
 Write-Host "Processing Windows 11 $featureUpdateBuild feature update readiness Report data for $($featureUpdateReadinessDevices.Count) devices..." -ForegroundColor Magenta
 
 $reportArray = @()
@@ -1176,17 +1309,14 @@ foreach ($featureUpdateReadinessDevice in $featureUpdateReadinessDevices) {
 $reportArray = $reportArray | Sort-Object -Property ReadinessStatus
 
 Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($featureUpdateReadinessDevices.Count) devices." -ForegroundColor Green
-Write-Host
 #endregion Feature Update Readiness
 
 #region Attributes
 Write-Host "Starting the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Magenta
-Write-Host ''
 if ($firstRun -eq $true) {
     Write-Warning 'Please confirm you are happy to continue.' -WarningAction Inquire
 }
 Write-Host "Assigning the Risk attributes to $extensionAttributeValue..." -ForegroundColor cyan
-Write-Host ''
 if ($target -eq 'user') {
     # Removes devices with no primary user
     $userReportArray = $reportArray | Where-Object { $_.userPrincipalName -ne $null -and $_.userPrincipalName -ne '' } | Group-Object userPrincipalName
@@ -1249,7 +1379,7 @@ if ($target -eq 'user') {
             }
         }
 
-        If ($whatIf -eq $false) {
+        if ($whatIf -eq $false) {
             Start-Sleep -Seconds $rndWait
             if (!([string]::IsNullOrEmpty($userObject.userObjectID))) {
                 Add-ObjectAttribute -object User -Id $($userObject.userObjectID) -JSON $JSON
@@ -1268,7 +1398,7 @@ if ($target -eq 'user') {
 
 }
 else {
-    Foreach ($device in $reportArray) {
+    foreach ($device in $reportArray) {
 
         $riskColour = switch ($($device.ReadinessStatus)) {
             '0' { 'Green' }
@@ -1295,7 +1425,7 @@ else {
 "@
 
             # Sleep to stop throttling issues
-            If ($whatIf -eq $false) {
+            if ($whatIf -eq $false) {
                 Start-Sleep -Seconds $rndWait
                 if (!([string]::IsNullOrEmpty($device.deviceObjectID))) {
                     Add-ObjectAttribute -object Device -Id $device.deviceObjectID -JSON $JSON
@@ -1317,7 +1447,5 @@ else {
         }
     }
 }
-Write-Host ''
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
-Write-Host ''
 #endregion Attributes
