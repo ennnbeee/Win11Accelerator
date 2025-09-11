@@ -22,8 +22,8 @@ v0.2.4 - Updated attribute assignment logic and module check logic
 v0.2.3 - Improved function performance, and updated device dynamic groups
 v0.2.2 - Changed logic if groups are to be created
 v0.2.1 - Function improvements and bug fixes
-v0.2 - Allows creation of Dynamic Groups
-v0.1 - Initial release
+v0.2.0 - Allows creation of Dynamic Groups
+v0.1.0 - Initial release
 
 .PRIVATEDATA
 #>
