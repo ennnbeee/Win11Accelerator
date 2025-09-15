@@ -576,6 +576,9 @@ function Get-MDMGroup() {
     .DESCRIPTION
     This function allows for searching for groups or getting group information from Entra ID.
 
+    .PARAMETER groupName
+    Specifies a search term for the group name. If not provided, all groups will be returned.
+
     #>
 
     [cmdletbinding()]
