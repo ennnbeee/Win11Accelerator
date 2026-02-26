@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.4
+.VERSION 0.3.5
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -13,6 +13,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+v0.3.5 - Support for Windows 11 25H2
 v0.3.4 - Updated filtering when getting Entra ID objects
 v0.3.3 - User interface improvements, and improved error handling
 v0.3.2 - Bug fixes for attribute assignment and whatIf mode
@@ -37,8 +38,8 @@ The Invoke-Windows11Accelerator script allows for the controlled roll out of Win
 
 .PARAMETER featureUpdateBuild
 Select the Windows 11 Feature Update version you wish to deploy
-Choice of 22H2, 23H2, 24H2.
-Default is 24H2, so the script will target Windows 11 24H2 Feature Update.
+Choice of  23H2, 24H2, 25H2
+Default is 25H2, so the script will target Windows 11 25H2 Feature Update.
 
 .PARAMETER extensionAttribute
 Configure the device extensionAttribute to be used for tagging Entra ID objects with their Feature Update Readiness Assessment risk score.
@@ -87,8 +88,8 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAtt
 param(
 
     [Parameter(Position = 0, Mandatory = $true, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
-    [ValidateSet('22H2', '23H2', '24H2')]
-    [String]$featureUpdateBuild = '24H2',
+    [ValidateSet('23H2', '24H2', '25H2')]
+    [String]$featureUpdateBuild = '25H2',
 
     [Parameter(Position = 1, Mandatory = $true, HelpMessage = 'Select the whether you want to target the deployment to groups of users or groups of devices.')]
     [ValidateSet('user', 'device')]
@@ -888,7 +889,7 @@ function New-FeatureUpdateAssignment() {
 #region testing
 <#
 $scopeTag = 'default'
-$featureUpdateBuild = '24H2'
+$featureUpdateBuild = '25H2'
 $extensionAttribute = 11
 $whatIf = $false
 $firstRun = $false
@@ -937,6 +938,7 @@ $featureUpdate = switch ($featureUpdateBuild) {
     '22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
     '23H2' { 'NI23H2' } # Windows 11 23H2 (Nickel)
     '24H2' { 'GE24H2' } # Windows 11 24H2 (Germanium)
+    '25H2' { 'GE25H2' } # Windows 11 25H2 (Germanium)
 }
 
 $userRule = "(user.accountEnabled -eq True) and (user.assignedPlans -any (assignedPlan.servicePlanId -eq `\`"c1ec4a95-1f05-45b3-a911-aa3fa01094f5`\`" -and assignedPlan.capabilityStatus -eq `\`"Enabled`\`")) and "
