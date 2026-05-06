@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.5
+.VERSION 0.3.6
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -13,6 +13,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+v0.3.6 - Minor updates
 v0.3.5 - Support for Windows 11 25H2
 v0.3.4 - Updated filtering when getting Entra ID objects
 v0.3.3 - User interface improvements, and improved error handling
@@ -884,7 +885,7 @@ function New-FeatureUpdateAssignment() {
         Write-Output 'Feature Update profile assignment was not created'
     }
 }
-#endregion Functions
+#endregion
 
 #region testing
 <#
@@ -897,24 +898,7 @@ $target = 'device'
 $createGroups = $false
 $deployFeatureUpdate = $false
 #>
-#endregion testing
-
-#region intro
-Write-Host '
- ________ __         ____   ____   _______                   __                    __
-|  |  |  |__|.-----.|_   | |_   | |   _   |.----.----.-----.|  |.-----.----.---.-.|  |_.-----.----.' -ForegroundColor Cyan -NoNewline
-Write-Host '
-|  |  |  |  ||     | _|  |_ _|  |_|       ||  __|  __|  -__||  ||  -__|   _|  _  ||   _|  _  |   _|' -ForegroundColor DarkCyan -NoNewline
-Write-Host '
-|________|__||__|__||______|______|___|___||____|____|_____||__||_____|__| |___._||____|_____|__|' -ForegroundColor blue
-
-Write-Host "`nAllows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
-Write-Host 'Nick Benton - oddsandendpoints.co.uk' -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.4 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2025-09-11' -ForegroundColor Magenta
-Write-Host "`nIf you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues" -ForegroundColor Cyan
-
-#endregion intro
+#endregion
 
 #region variables
 $ProgressPreference = 'SilentlyContinue';
@@ -968,7 +952,30 @@ foreach ($groupArray in $groupsArray) {
     $groupsDisplayArray += [PSCustomObject]@{ displayName = $groupArray.displayName; rule = $groupArray.rule.replace('\', '') }
 }
 
-#endregion variables
+#endregion
+
+#region intro
+Clear-Host
+Write-Host '
+░█░█░▀█▀░█▀█░█▀▄░█▀█░█░█░█▀▀
+░█▄█░░█░░█░█░█░█░█░█░█▄█░▀▀█
+░▀░▀░▀▀▀░▀░▀░▀▀░░▀▀▀░▀░▀░▀▀▀' -ForegroundColor Cyan
+Write-Host '
+░▀█░░▀█░
+░░█░░░█░
+░▀▀▀░▀▀▀' -ForegroundColor Red
+Write-Host '
+░█▀█░█▀▀░█▀▀░█▀▀░█░░░█▀▀░█▀▄░█▀█░▀█▀░█▀█░█▀▄
+░█▀█░█░░░█░░░█▀▀░█░░░█▀▀░█▀▄░█▀█░░█░░█░█░█▀▄
+░▀░▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀▀▀░▀░▀░▀░▀░░▀░░▀▀▀░▀░▀' -ForegroundColor DarkRed
+
+Write-Host "`nAllows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
+Write-Host "`nNick Benton - oddsandendpoints.co.uk" -NoNewline;
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.5 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2026-05-06' -ForegroundColor Magenta
+Write-Host "`nIf you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues" -ForegroundColor Cyan
+Start-Sleep -Seconds $rndWait
+#endregion
 
 #region module check
 if (!$IsMacOS -and !$IsLinux) {
@@ -992,7 +999,7 @@ foreach ($module in $modules) {
     Write-Host "PowerShell Module $module found." -ForegroundColor Green
     Import-Module -Name $module -Force
 }
-#endregion module check
+#endregion
 
 #region app auth
 try {
@@ -1017,7 +1024,7 @@ catch {
     Write-Error $_.Exception.Message
     exit
 }
-#endregion app auth
+#endregion
 
 #region scopes
 $currentScopes = $context.Scopes
@@ -1030,7 +1037,7 @@ if ($missingScopes.Count -gt 0) {
     exit
 }
 Write-Host "`nAll required scope permissions are present." -ForegroundColor Green
-#endregion scopes
+#endregion
 
 #region scope tags
 if ($scopeTag -ne 'default') {
@@ -1049,7 +1056,7 @@ else {
     $scopeTagId = '00000'
 }
 
-#endregion scope tags
+#endregion
 
 #region Start
 Write-Host
@@ -1079,7 +1086,7 @@ if ($createGroups -eq $true) {
 if ($firstRun -eq $true) {
     Write-Warning 'Please review the above and confirm you are happy to continue.' -WarningAction Inquire
 }
-#endregion Start
+#endregion
 
 #region pre-flight
 if ($target -eq 'user') {
@@ -1149,7 +1156,7 @@ if ($attributeErrors -gt 0) {
     Write-Warning "If you are happy to overwrite $extensionAttributeValue please continue, otherwise stop the script." -WarningAction Inquire
 }
 Write-Host "No issues found using the selected attribute $extensionAttributeValue for risk assignment." -ForegroundColor Green
-#endregion pre-flight
+#endregion
 
 #region Group Creation
 if ($firstRun -eq $true) {
@@ -1207,7 +1214,7 @@ if ($createGroups -eq $true) {
     Write-Host 'Successfully created new group(s) in Microsoft Entra ID.' -ForegroundColor Green
 }
 
-#endregion Group Creation
+#endregion
 
 #region Feature Update Readiness
 Write-Host "Starting the Feature Update Readiness Report for Windows 11 $featureUpdateBuild with scope tag $scopeTag..." -ForegroundColor Magenta
@@ -1314,7 +1321,7 @@ foreach ($featureUpdateReadinessDevice in $featureUpdateReadinessDevices) {
 $reportArray = $reportArray | Sort-Object -Property ReadinessStatus
 
 Write-Host "Processed Windows 11 $featureUpdateBuild feature update readiness data for $($featureUpdateReadinessDevices.Count) devices." -ForegroundColor Green
-#endregion Feature Update Readiness
+#endregion
 
 #region Attributes
 Write-Host "Starting the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Magenta
@@ -1453,4 +1460,4 @@ else {
     }
 }
 Write-Host "Completed the assignment of risk based extension attributes to $extensionAttributeValue" -ForegroundColor Green
-#endregion Attributes
+#endregion
