@@ -1,6 +1,6 @@
 <#PSScriptInfo
 
-.VERSION 0.3.6
+.VERSION 0.3.7
 .GUID 9c1fcbcd-fe13-4810-bf91-f204ec903193
 .AUTHOR Nick Benton
 .COMPANYNAME odds+endpoints
@@ -13,6 +13,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+v0.3.7 - Updated authentication logic to allow for existing graph sessions
 v0.3.6 - Minor updates
 v0.3.5 - Support for Windows 11 25H2
 v0.3.4 - Updated filtering when getting Entra ID objects
@@ -971,8 +972,8 @@ Write-Host '
 
 Write-Host "`nAllows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host "`nNick Benton - oddsandendpoints.co.uk" -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.5 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2026-05-06' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.7 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2026-05-28' -ForegroundColor Magenta
 Write-Host "`nIf you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues" -ForegroundColor Cyan
 Start-Sleep -Seconds $rndWait
 #endregion
@@ -1003,22 +1004,28 @@ foreach ($module in $modules) {
 
 #region app auth
 try {
-    if (!$tenantId) {
-        Write-Host 'Connecting using interactive authentication' -ForegroundColor Yellow
-        Connect-MgGraph -Scopes $scopes -NoWelcome -ErrorAction Stop
+    if (Get-MgContext) {
+        Write-Host 'Existing Graph session detected, using current authentication context.' -ForegroundColor Yellow
+
     }
     else {
-        if ((!$appId -and !$appSecret) -or ($appId -and !$appSecret) -or (!$appId -and $appSecret)) {
-            Write-Host 'Missing App Details, connecting using user authentication' -ForegroundColor Yellow
-            Connect-ToGraph -tenantId $tenantId -Scopes $scopes -ErrorAction Stop
+        if (!$tenantId) {
+            Write-Host 'Connecting using interactive authentication' -ForegroundColor Yellow
+            Connect-MgGraph -Scopes $scopes -NoWelcome -ErrorAction Stop
         }
         else {
-            Write-Host 'Connecting using App authentication' -ForegroundColor Yellow
-            Connect-ToGraph -tenantId $tenantId -appId $appId -appSecret $appSecret -ErrorAction Stop
+            if ((!$appId -and !$appSecret) -or ($appId -and !$appSecret) -or (!$appId -and $appSecret)) {
+                Write-Host 'Missing App Details, connecting using user authentication' -ForegroundColor Yellow
+                Connect-ToGraph -tenantId $tenantId -Scopes $scopes -ErrorAction Stop
+            }
+            else {
+                Write-Host 'Connecting using App authentication' -ForegroundColor Yellow
+                Connect-ToGraph -tenantId $tenantId -appId $appId -appSecret $appSecret -ErrorAction Stop
+            }
         }
     }
     $context = Get-MgContext
-    Write-Host "`nSuccessfully connected to Microsoft Graph tenant with ID $($context.TenantId)." -ForegroundColor Green
+    Write-Host "`nSuccessfully connected to Microsoft Graph tenant $($context.TenantId)." -ForegroundColor Green
 }
 catch {
     Write-Error $_.Exception.Message
