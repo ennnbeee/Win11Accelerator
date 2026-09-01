@@ -13,6 +13,7 @@
 .REQUIREDSCRIPTS
 .EXTERNALSCRIPTDEPENDENCIES
 .RELEASENOTES
+v0.4.0 - Support for Windows 11 26H2
 v0.3.7 - Updated authentication logic to allow for existing graph sessions
 v0.3.6 - Minor updates
 v0.3.5 - Support for Windows 11 25H2
@@ -90,7 +91,7 @@ PS> .\Win11Accelerator.ps1 -featureUpdateBuild 24H2 -target device -extensionAtt
 param(
 
     [Parameter(Position = 0, Mandatory = $true, HelpMessage = 'Select the Windows 11 Feature Update version you wish to deploy')]
-    [ValidateSet('23H2', '24H2', '25H2')]
+    [ValidateSet('23H2', '24H2', '25H2', '26H2')]
     [String]$featureUpdateBuild = '25H2',
 
     [Parameter(Position = 1, Mandatory = $true, HelpMessage = 'Select the whether you want to target the deployment to groups of users or groups of devices.')]
@@ -920,10 +921,11 @@ if ($target -eq 'users') {
 $extensionAttributeValue = 'extensionAttribute' + $extensionAttribute
 
 $featureUpdate = switch ($featureUpdateBuild) {
-    '22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
+    #'22H2' { 'NI22H2' } # Windows 11 22H2 (Nickel)
     '23H2' { 'NI23H2' } # Windows 11 23H2 (Nickel)
     '24H2' { 'GE24H2' } # Windows 11 24H2 (Germanium)
     '25H2' { 'GE25H2' } # Windows 11 25H2 (Germanium)
+    '26H2' { 'GE26H2' } # Windows 11 26H2 (Germanium)
 }
 
 $userRule = "(user.accountEnabled -eq True) and (user.assignedPlans -any (assignedPlan.servicePlanId -eq `\`"c1ec4a95-1f05-45b3-a911-aa3fa01094f5`\`" -and assignedPlan.capabilityStatus -eq `\`"Enabled`\`")) and "
@@ -972,8 +974,8 @@ Write-Host '
 
 Write-Host "`nAllows for the tagging of Windows devices with their Windows 11 $featureUpdate Feature Update risk score, to allow for a controlled update to Windows 11." -ForegroundColor Green
 Write-Host "`nNick Benton - oddsandendpoints.co.uk" -NoNewline;
-Write-Host ' | Version' -NoNewline; Write-Host ' 0.3.7 Public Preview' -ForegroundColor Yellow -NoNewline
-Write-Host ' | Last updated: ' -NoNewline; Write-Host '2026-05-28' -ForegroundColor Magenta
+Write-Host ' | Version' -NoNewline; Write-Host ' 0.4.0 Public Preview' -ForegroundColor Yellow -NoNewline
+Write-Host ' | Last updated: ' -NoNewline; Write-Host '2026-09-01' -ForegroundColor Magenta
 Write-Host "`nIf you have any feedback, please open an issue at https://github.com/ennnbeee/W11Accelerator/issues" -ForegroundColor Cyan
 Start-Sleep -Seconds $rndWait
 #endregion
